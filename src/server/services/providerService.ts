@@ -20,9 +20,13 @@ import type { AnthropicRequest, AnthropicResponse } from '../proxy/transform/typ
 import { PROVIDER_PRESETS } from '../config/providerPresets.js'
 import { MODEL_CONTEXT_WINDOWS_ENV_KEY } from '../../utils/model/modelContextWindows.js'
 import {
+  OPENAI_CODEX_OAUTH_FILE_ENV_KEY,
   OPENAI_OFFICIAL_PROVIDER,
+  OPENAI_OAUTH_PROVIDER_ENV_KEY,
+  buildOpenAIOfficialRuntimeEnv,
   isOpenAIOfficialProviderId,
 } from './openaiOfficialProvider.js'
+import { hahaOpenAIOAuthService } from './hahaOpenAIOAuthService.js'
 import {
   CURRENT_PROVIDER_INDEX_SCHEMA_VERSION,
   ensurePersistentStorageUpgraded,
@@ -52,6 +56,8 @@ const MANAGED_ENV_KEYS = [
   'ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES',
   'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
   MODEL_CONTEXT_WINDOWS_ENV_KEY,
+  OPENAI_OAUTH_PROVIDER_ENV_KEY,
+  OPENAI_CODEX_OAUTH_FILE_ENV_KEY,
 ] as const
 
 const CUSTOM_PROVIDER_MODEL_CAPABILITIES = 'thinking,effort,adaptive_thinking,max_effort'
@@ -358,12 +364,9 @@ export class ProviderService {
     index.activeId = id
     await this.writeIndex(index)
 
-    if (isOpenAIOfficialProviderId(id)) {
-      await this.clearProviderFromSettings()
-      return
-    }
-
-    if (provider.presetId === 'official') {
+    if (provider.runtimeKind === 'openai_oauth') {
+      await this.syncToSettings(provider)
+    } else if (provider.presetId === 'official') {
       await this.clearProviderFromSettings()
     } else {
       await this.syncToSettings(provider)
@@ -383,6 +386,10 @@ export class ProviderService {
     provider: SavedProvider,
     options?: { proxyPath?: string },
   ): Record<string, string> {
+    if (provider.runtimeKind === 'openai_oauth') {
+      return buildOpenAIOfficialRuntimeEnv()
+    }
+
     const needsProxy = provider.apiFormat != null && provider.apiFormat !== 'anthropic'
     const proxyPath = options?.proxyPath ?? '/proxy'
     const baseUrl = needsProxy
@@ -423,12 +430,6 @@ export class ProviderService {
   }
 
   async getProviderRuntimeEnv(id: string): Promise<Record<string, string>> {
-    if (isOpenAIOfficialProviderId(id)) {
-      // Task 1 only persists the built-in provider selection. Task 3 wires the
-      // dedicated OAuth runtime env for ChatGPT Official sessions.
-      return {}
-    }
-
     const provider = await this.getProvider(id)
     return this.buildManagedEnv(provider, {
       proxyPath: `/proxy/providers/${provider.id}`,
@@ -493,12 +494,28 @@ export class ProviderService {
    */
   async checkAuthStatus(): Promise<{
     hasAuth: boolean
-    source: 'cc-haha-provider' | 'original-settings' | 'env' | 'none'
+    source: 'cc-haha-provider' | 'openai-oauth' | 'original-settings' | 'env' | 'none'
     activeProvider?: string
   }> {
     // 1. Check cc-haha active provider
     const index = await this.readIndex()
     if (index.activeId) {
+      if (isOpenAIOfficialProviderId(index.activeId)) {
+        const tokens = await hahaOpenAIOAuthService.ensureFreshTokens()
+        if (tokens?.accessToken && tokens.refreshToken) {
+          return {
+            hasAuth: true,
+            source: 'openai-oauth',
+            activeProvider: OPENAI_OFFICIAL_PROVIDER.name,
+          }
+        }
+        return {
+          hasAuth: false,
+          source: 'none',
+          activeProvider: OPENAI_OFFICIAL_PROVIDER.name,
+        }
+      }
+
       const provider = index.providers.find(p => p.id === index.activeId)
       if (provider) {
         const presetDefaultEnv = getPresetDefaultEnv(provider.presetId)

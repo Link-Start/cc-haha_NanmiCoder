@@ -5,6 +5,8 @@ import {
   OPENAI_DEFAULT_SONNET_MODEL,
   getOpenAIContextWindowForModel,
 } from '../../services/openaiAuth/models.js'
+import { MODEL_CONTEXT_WINDOWS_ENV_KEY } from '../../utils/model/modelContextWindows.js'
+import { getHahaOpenAIOAuthFilePath } from './hahaOpenAIOAuthService.js'
 import type { SavedProvider } from '../types/provider.js'
 
 export const OPENAI_OFFICIAL_PROVIDER_ID = 'openai-official'
@@ -44,4 +46,19 @@ export const OPENAI_OFFICIAL_PROVIDER: SavedProvider = {
   runtimeKind: 'openai_oauth',
   models: openAIModels,
   modelContextWindows,
+}
+
+export function buildOpenAIOfficialRuntimeEnv(): Record<string, string> {
+  const modelContextWindows = OPENAI_OFFICIAL_PROVIDER.modelContextWindows ?? {}
+  return {
+    [OPENAI_OAUTH_PROVIDER_ENV_KEY]: '1',
+    [OPENAI_CODEX_OAUTH_FILE_ENV_KEY]: getHahaOpenAIOAuthFilePath(),
+    ...(Object.keys(modelContextWindows).length > 0 && {
+      [MODEL_CONTEXT_WINDOWS_ENV_KEY]: JSON.stringify(modelContextWindows),
+    }),
+    ANTHROPIC_MODEL: OPENAI_OFFICIAL_PROVIDER.models.main,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: OPENAI_OFFICIAL_PROVIDER.models.haiku,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: OPENAI_OFFICIAL_PROVIDER.models.sonnet,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: OPENAI_OFFICIAL_PROVIDER.models.opus,
+  }
 }

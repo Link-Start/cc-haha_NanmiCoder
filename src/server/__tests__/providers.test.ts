@@ -314,7 +314,7 @@ describe('ProviderService', () => {
         })
       })
 
-      test('activating ChatGPT Official only persists activeId for Task 1', async () => {
+      test('activating ChatGPT Official writes OpenAI OAuth runtime env without Anthropic auth or proxy env', async () => {
         const svc = new ProviderService()
 
         await svc.activateProvider('openai-official')
@@ -322,7 +322,19 @@ describe('ProviderService', () => {
         const config = await readProvidersConfig()
         const settings = await readSettings()
         expect(config.activeId).toBe('openai-official')
-        expect(settings.env).toBeUndefined()
+        const env = settings.env as Record<string, string>
+        expect(env.CC_HAHA_OPENAI_OAUTH_PROVIDER).toBe('1')
+        expect(env.OPENAI_CODEX_OAUTH_FILE).toBe(
+          path.join(tmpDir, 'cc-haha', 'openai-oauth.json'),
+        )
+        expect(env.ANTHROPIC_MODEL).toBe('gpt-5.3-codex')
+        expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('gpt-5.4-mini')
+        expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('gpt-5.4')
+        expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('gpt-5.3-codex')
+        expect(typeof env.CLAUDE_CODE_MODEL_CONTEXT_WINDOWS).toBe('string')
+        expect(env.ANTHROPIC_BASE_URL).toBeUndefined()
+        expect(env.ANTHROPIC_API_KEY).toBeUndefined()
+        expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined()
       })
 
       test('activating ChatGPT Official clears stale managed provider env', async () => {
@@ -343,7 +355,63 @@ describe('ProviderService', () => {
         await svc.activateProvider('openai-official')
 
         const settings = await readSettings()
-        expect(settings.env).toBeUndefined()
+        const env = settings.env as Record<string, string>
+        expect(env.CC_HAHA_OPENAI_OAUTH_PROVIDER).toBe('1')
+        expect(env.OPENAI_CODEX_OAUTH_FILE).toBe(
+          path.join(tmpDir, 'cc-haha', 'openai-oauth.json'),
+        )
+        expect(env.ANTHROPIC_BASE_URL).toBeUndefined()
+        expect(env.ANTHROPIC_API_KEY).toBeUndefined()
+        expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined()
+      })
+
+      test('auth status reports ChatGPT Official from the desktop OpenAI token file', async () => {
+        await fs.mkdir(path.join(tmpDir, 'cc-haha'), { recursive: true })
+        await fs.writeFile(
+          path.join(tmpDir, 'cc-haha', 'openai-oauth.json'),
+          JSON.stringify({
+            accessToken: 'openai-access',
+            refreshToken: 'openai-refresh',
+            expiresAt: Date.now() + 60 * 60_000,
+            email: 'user@example.com',
+            accountId: 'acct_123',
+          }),
+          'utf-8',
+        )
+
+        const svc = new ProviderService()
+        await svc.activateProvider('openai-official')
+
+        await expect(svc.checkAuthStatus()).resolves.toMatchObject({
+          hasAuth: true,
+          source: 'openai-oauth',
+          activeProvider: 'ChatGPT Official',
+        })
+      })
+
+      test('auth status reports ChatGPT Official as unauthenticated when the OpenAI token file is missing', async () => {
+        const svc = new ProviderService()
+        await svc.activateProvider('openai-official')
+
+        await expect(svc.checkAuthStatus()).resolves.toMatchObject({
+          hasAuth: false,
+          source: 'none',
+          activeProvider: 'ChatGPT Official',
+        })
+      })
+
+      test('activating another provider clears ChatGPT Official runtime markers', async () => {
+        const svc = new ProviderService()
+        const provider = await svc.addProvider(sampleInput())
+
+        await svc.activateProvider('openai-official')
+        await svc.activateProvider(provider.id)
+
+        const env = (await readSettings()).env as Record<string, string>
+        expect(env.CC_HAHA_OPENAI_OAUTH_PROVIDER).toBeUndefined()
+        expect(env.OPENAI_CODEX_OAUTH_FILE).toBeUndefined()
+        expect(env.ANTHROPIC_BASE_URL).toBe('https://api.example.com')
+        expect(env.ANTHROPIC_AUTH_TOKEN).toBe('sk-test-key-123')
       })
     })
 
