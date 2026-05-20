@@ -19,6 +19,8 @@ import { openaiResponsesToAnthropic } from './transform/openaiResponsesToAnthrop
 import { openaiChatStreamToAnthropic } from './streaming/openaiChatStreamToAnthropic.js'
 import { openaiResponsesStreamToAnthropic } from './streaming/openaiResponsesStreamToAnthropic.js'
 import type { AnthropicRequest } from './transform/types.js'
+import { getProxyFetchOptions } from '../../utils/proxy.js'
+import { getManualNetworkProxyUrl, loadNetworkSettings } from '../services/networkSettings.js'
 
 const providerService = new ProviderService()
 
@@ -85,12 +87,14 @@ export async function handleProxyRequest(req: Request, url: URL): Promise<Respon
 
   const isStream = body.stream === true
   const baseUrl = config.baseUrl.replace(/\/+$/, '')
+  const networkSettings = await loadNetworkSettings()
+  const proxyUrl = getManualNetworkProxyUrl(networkSettings)
 
   try {
     if (config.apiFormat === 'openai_chat') {
-      return await handleOpenaiChat(body, baseUrl, config.apiKey, isStream)
+      return await handleOpenaiChat(body, baseUrl, config.apiKey, isStream, networkSettings.aiRequestTimeoutMs, proxyUrl)
     } else {
-      return await handleOpenaiResponses(body, baseUrl, config.apiKey, isStream)
+      return await handleOpenaiResponses(body, baseUrl, config.apiKey, isStream, networkSettings.aiRequestTimeoutMs, proxyUrl)
     }
   } catch (err) {
     console.error('[Proxy] Upstream request failed:', err)
@@ -112,6 +116,8 @@ async function handleOpenaiChat(
   baseUrl: string,
   apiKey: string,
   isStream: boolean,
+  aiRequestTimeoutMs: number,
+  proxyUrl: string | undefined,
 ): Promise<Response> {
   const deepSeekCompatible = shouldUseDeepSeekReasoningCompat(baseUrl)
   const transformed = anthropicToOpenaiChat(body, {
@@ -119,6 +125,7 @@ async function handleOpenaiChat(
     passThinkingToggle: deepSeekCompatible,
   })
   const url = `${baseUrl}/v1/chat/completions`
+  const proxyOptions = getProxyFetchOptions({ proxyUrl })
 
   const upstream = await fetch(url, {
     method: 'POST',
@@ -127,7 +134,8 @@ async function handleOpenaiChat(
       Authorization: `Bearer ${apiKey}`,
     },
     body: signClaudeCodeCCHInTransformedString(JSON.stringify(transformed)),
-    signal: isStream ? AbortSignal.timeout(30_000) : AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(isStream ? aiRequestTimeoutMs : Math.max(aiRequestTimeoutMs, 300_000)),
+    ...proxyOptions,
   })
 
   if (!upstream.ok) {
@@ -180,9 +188,12 @@ async function handleOpenaiResponses(
   baseUrl: string,
   apiKey: string,
   isStream: boolean,
+  aiRequestTimeoutMs: number,
+  proxyUrl: string | undefined,
 ): Promise<Response> {
   const transformed = anthropicToOpenaiResponses(body)
   const url = `${baseUrl}/v1/responses`
+  const proxyOptions = getProxyFetchOptions({ proxyUrl })
 
   const upstream = await fetch(url, {
     method: 'POST',
@@ -191,7 +202,8 @@ async function handleOpenaiResponses(
       Authorization: `Bearer ${apiKey}`,
     },
     body: signClaudeCodeCCHInTransformedString(JSON.stringify(transformed)),
-    signal: isStream ? AbortSignal.timeout(30_000) : AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(isStream ? aiRequestTimeoutMs : Math.max(aiRequestTimeoutMs, 300_000)),
+    ...proxyOptions,
   })
 
   if (!upstream.ok) {
