@@ -57,6 +57,18 @@ describe('WebSocket compact events', () => {
       type: 'system',
       subtype: 'status',
       status: null,
+    }, 'session-1')).toEqual([
+      {
+        type: 'status',
+        state: 'thinking',
+        verb: 'Thinking',
+      },
+    ])
+
+    expect(translateCliMessage({
+      type: 'system',
+      subtype: 'status',
+      status: 'warming',
     }, 'session-1')).toEqual([])
   })
 

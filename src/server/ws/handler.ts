@@ -1284,6 +1284,9 @@ export function translateCliMessage(cliMsg: any, sessionId: string): ServerMessa
             verb: 'Compacting conversation',
           }]
         }
+        if (cliMsg.status == null) {
+          return [{ type: 'status', state: 'thinking', verb: 'Thinking' }]
+        }
         return []
       }
       if (subtype === 'hook_started' || subtype === 'hook_response') {

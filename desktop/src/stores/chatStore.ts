@@ -322,20 +322,15 @@ function compactMetadataFromUnknown(data: unknown): Pick<CompactSummaryMessage, 
   }
 }
 
-function appendOrUpdateCompactSummary(
+function appendOrUpdateTailCompactSummary(
   messages: UIMessage[],
   update: Partial<Omit<CompactSummaryMessage, 'id' | 'type' | 'timestamp'>>,
   timestamp: number,
 ): UIMessage[] {
-  let existingIndex = -1
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.type === 'compact_summary') {
-      existingIndex = index
-      break
-    }
-  }
-  if (existingIndex >= 0) {
-    const existing = messages[existingIndex] as CompactSummaryMessage
+  const existingIndex = messages.length - 1
+  const existingMessage = messages[existingIndex]
+  if (existingMessage?.type === 'compact_summary') {
+    const existing = existingMessage
     const next: CompactSummaryMessage = {
       ...existing,
       ...update,
@@ -361,13 +356,12 @@ function appendOrUpdateCompactSummary(
   ]
 }
 
-function collapseToCompactSummary(
-  messages: UIMessage[],
-  update: Partial<Omit<CompactSummaryMessage, 'id' | 'type' | 'timestamp'>>,
-  timestamp: number,
-): UIMessage[] {
-  const existing = [...messages].reverse().find((message): message is CompactSummaryMessage => message.type === 'compact_summary')
-  return appendOrUpdateCompactSummary(existing ? [existing] : [], update, timestamp)
+function dropTailCompactingCompactSummary(messages: UIMessage[]): UIMessage[] {
+  const tail = messages[messages.length - 1]
+  if (tail?.type === 'compact_summary' && tail.phase === 'compacting') {
+    return messages.slice(0, -1)
+  }
+  return messages
 }
 
 function upsertBackgroundTaskMessage(
@@ -1055,7 +1049,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             nextMessages = appendAssistantTextMessage(nextMessages, pendingText, Date.now())
           }
           if (msg.state === 'compacting') {
-            nextMessages = collapseToCompactSummary(
+            nextMessages = appendOrUpdateTailCompactSummary(
               nextMessages,
               {
                 title: 'Context compacted',
@@ -1063,6 +1057,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               },
               Date.now(),
             )
+          } else {
+            nextMessages = dropTailCompactingCompactSummary(nextMessages)
           }
           return {
             chatState: preserveStreamingTurn ? 'streaming' : msg.state,
@@ -1074,7 +1070,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ...(msg.tokens ? { tokenUsage: { ...session.tokenUsage, output_tokens: msg.tokens } } : {}),
             ...(msg.state === 'idle' ? { activeThinkingId: null } : {}),
             ...(msg.state === 'idle' ? { apiRetry: null } : {}),
-            ...((shouldFlush || msg.state === 'compacting') ? { messages: nextMessages } : {}),
+            ...(nextMessages !== session.messages ? { messages: nextMessages } : {}),
             ...(shouldFlush ? {
               streamingText: '',
             } : pendingText !== session.streamingText ? { streamingText: pendingText } : {}),
@@ -1348,12 +1344,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (pendingText.trim()) {
             newMessages = appendAssistantTextMessage(newMessages, pendingText, Date.now())
           }
+          newMessages = dropTailCompactingCompactSummary(newMessages)
           newMessages = [...newMessages, { id: nextId(), type: 'error', message: msg.message, code: msg.code, timestamp: Date.now() }]
           return {
             messages: newMessages,
             chatState: 'idle',
             activeThinkingId: null,
             streamingText: '',
+            statusVerb: '',
             pendingPermission: null,
             pendingComputerUsePermission: null,
             apiRetry: null,
@@ -1439,7 +1437,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           update((session) => ({
             chatState: session.chatState === 'compacting' ? 'thinking' : session.chatState,
             statusVerb: session.chatState === 'compacting' ? '' : session.statusVerb,
-            messages: collapseToCompactSummary(
+            messages: appendOrUpdateTailCompactSummary(
               session.messages,
               {
                 title: typeof msg.message === 'string' && msg.message.trim()
@@ -1456,13 +1454,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const summary = extractCompactSummaryContent(msg.message)
           if (summary) {
             update((session) => ({
-              messages: collapseToCompactSummary(
+              messages: appendOrUpdateTailCompactSummary(
                 session.messages,
                 {
                   title: 'Context compacted',
                   phase: 'complete',
                   summary,
-                  trigger: 'auto',
                   ...compactMetadataFromUnknown(msg.data),
                 },
                 Date.now(),
@@ -2198,7 +2195,7 @@ export function mapHistoryMessagesToUiMessages(
     const timestamp = new Date(msg.timestamp).getTime()
     if (msg.type === 'system' && typeof msg.content === 'string') {
       if (msg.content.trim() === 'Conversation compacted' || msg.content.trim() === 'Context compacted') {
-        const compactMessages = collapseToCompactSummary(
+        const compactMessages = appendOrUpdateTailCompactSummary(
           uiMessages,
           { title: 'Context compacted', phase: 'complete' },
           timestamp,
@@ -2244,13 +2241,12 @@ export function mapHistoryMessagesToUiMessages(
 
       const compactSummary = extractCompactSummaryContent(msg.content)
       if (compactSummary) {
-        const compactMessages = collapseToCompactSummary(
+        const compactMessages = appendOrUpdateTailCompactSummary(
           uiMessages,
           {
             title: 'Context compacted',
             phase: 'complete',
             summary: compactSummary,
-            trigger: 'auto',
           },
           timestamp,
         )

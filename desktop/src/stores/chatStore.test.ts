@@ -223,7 +223,7 @@ describe('chatStore history mapping', () => {
     expect(mapped[3]).toMatchObject({ parentToolUseId: 'agent-1' })
   })
 
-  it('maps compact boundary and summary history into one compact card', () => {
+  it('maps compact boundary and summary history without hiding pre-compact messages', () => {
     const messages: MessageEntry[] = [
       {
         id: 'old-user',
@@ -259,8 +259,18 @@ describe('chatStore history mapping', () => {
 
     const mapped = mapHistoryMessagesToUiMessages(messages)
 
-    expect(mapped).toHaveLength(1)
+    expect(mapped).toHaveLength(3)
     expect(mapped).toMatchObject([
+      {
+        id: 'old-user',
+        type: 'user_text',
+        content: 'Build the billing import flow',
+      },
+      {
+        id: 'old-assistant',
+        type: 'assistant_text',
+        content: 'Implemented the flow.',
+      },
       {
         type: 'compact_summary',
         title: 'Context compacted',
@@ -1920,8 +1930,10 @@ describe('chatStore history mapping', () => {
     })
 
     const messages = useChatStore.getState().sessions[TEST_SESSION_ID]?.messages ?? []
-    expect(messages).toHaveLength(1)
+    expect(messages).toHaveLength(3)
     expect(messages).toMatchObject([
+      { id: 'old-user', type: 'user_text', content: 'Build the billing import flow' },
+      { id: 'old-assistant', type: 'assistant_text', content: 'Implemented the flow.' },
       {
         type: 'compact_summary',
         title: 'Context compacted',
@@ -1959,6 +1971,7 @@ describe('chatStore history mapping', () => {
       type: 'system_notification',
       subtype: 'compact_boundary',
       message: 'Context compacted',
+      data: { trigger: 'manual' },
     })
     useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
       type: 'system_notification',
@@ -1976,6 +1989,7 @@ describe('chatStore history mapping', () => {
     expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.messages).toMatchObject([
       {
         type: 'compact_summary',
+        trigger: 'manual',
         summary: 'Implemented the billing report and verified export behavior.',
       },
     ])
@@ -2017,10 +2031,119 @@ describe('chatStore history mapping', () => {
     expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.statusVerb).toBe('Compacting conversation')
     expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.messages).toMatchObject([
       {
+        id: 'old-user',
+        type: 'user_text',
+        content: 'old context',
+      },
+      {
         type: 'compact_summary',
         phase: 'compacting',
       },
     ])
+    expect(updateTabStatusMock).toHaveBeenLastCalledWith(TEST_SESSION_ID, 'running')
+  })
+
+  it('removes the transient compacting card when compaction is canceled', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: {
+          messages: [
+            { id: 'old-user', type: 'user_text', content: 'old context', timestamp: 1 },
+          ],
+          chatState: 'thinking',
+          connectionState: 'connected',
+          streamingText: '',
+          streamingToolInput: '',
+          activeToolUseId: null,
+          activeToolName: null,
+          activeThinkingId: null,
+          pendingPermission: null,
+          pendingComputerUsePermission: null,
+          tokenUsage: { input_tokens: 0, output_tokens: 0 },
+          elapsedSeconds: 0,
+          statusVerb: '',
+          slashCommands: [],
+          agentTaskNotifications: {},
+          elapsedTimer: null,
+        },
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'status',
+      state: 'compacting',
+      verb: 'Compacting conversation',
+    })
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'error',
+      message: 'Compaction canceled.',
+      code: 'aborted',
+    })
+
+    const session = useChatStore.getState().sessions[TEST_SESSION_ID]
+    expect(session?.statusVerb).toBe('')
+    expect(session?.messages).toMatchObject([
+      {
+        id: 'old-user',
+        type: 'user_text',
+        content: 'old context',
+      },
+      {
+        type: 'error',
+        message: 'Compaction canceled.',
+      },
+    ])
+    expect(session?.messages.some((message) => message.type === 'compact_summary' && message.phase === 'compacting')).toBe(false)
+    expect(updateTabStatusMock).toHaveBeenLastCalledWith(TEST_SESSION_ID, 'error')
+  })
+
+  it('removes the transient compacting card when compacting status ends without a boundary', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: {
+          messages: [
+            { id: 'old-user', type: 'user_text', content: 'old context', timestamp: 1 },
+          ],
+          chatState: 'thinking',
+          connectionState: 'connected',
+          streamingText: '',
+          streamingToolInput: '',
+          activeToolUseId: null,
+          activeToolName: null,
+          activeThinkingId: null,
+          pendingPermission: null,
+          pendingComputerUsePermission: null,
+          tokenUsage: { input_tokens: 0, output_tokens: 0 },
+          elapsedSeconds: 0,
+          statusVerb: '',
+          slashCommands: [],
+          agentTaskNotifications: {},
+          elapsedTimer: null,
+        },
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'status',
+      state: 'compacting',
+      verb: 'Compacting conversation',
+    })
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'status',
+      state: 'thinking',
+      verb: 'Thinking',
+    })
+
+    const session = useChatStore.getState().sessions[TEST_SESSION_ID]
+    expect(session?.chatState).toBe('thinking')
+    expect(session?.messages).toMatchObject([
+      {
+        id: 'old-user',
+        type: 'user_text',
+        content: 'old context',
+      },
+    ])
+    expect(session?.messages.some((message) => message.type === 'compact_summary' && message.phase === 'compacting')).toBe(false)
     expect(updateTabStatusMock).toHaveBeenLastCalledWith(TEST_SESSION_ID, 'running')
   })
 
