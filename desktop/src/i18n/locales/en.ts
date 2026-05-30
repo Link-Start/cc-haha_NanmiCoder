@@ -105,6 +105,15 @@ export const en = {
   'openWith.fileType.code': 'Code',
   'openWith.fileType.file': 'File',
 
+  // ─── Assistant Output Targets ──────────────────────
+  'assistantOutputs.kind.markdown': 'Markdown',
+  'assistantOutputs.kind.html': 'HTML',
+  'assistantOutputs.kind.image': 'Image',
+  'assistantOutputs.kind.localhost': 'Localhost',
+  'assistantOutputs.moreOutputs': '+{count} more',
+  'assistantOutputs.open': 'Open',
+  'assistantOutputs.copy': 'Copy path',
+
   // ─── Workspace Panel ───────────────────────────────
   'workspace.changedFiles': 'Changed files',
   'workspace.allFiles': 'All files',

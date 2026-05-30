@@ -107,6 +107,15 @@ export const zh: Record<TranslationKey, string> = {
   'openWith.fileType.code': '代码',
   'openWith.fileType.file': '文件',
 
+  // ─── Assistant Output Targets ──────────────────────
+  'assistantOutputs.kind.markdown': 'Markdown',
+  'assistantOutputs.kind.html': 'HTML',
+  'assistantOutputs.kind.image': '图片',
+  'assistantOutputs.kind.localhost': '本地服务',
+  'assistantOutputs.moreOutputs': '+{count} 个输出',
+  'assistantOutputs.open': '打开',
+  'assistantOutputs.copy': '复制路径',
+
   // ─── Workspace Panel ───────────────────────────────
   'workspace.changedFiles': '已更改文件',
   'workspace.allFiles': '所有文件',

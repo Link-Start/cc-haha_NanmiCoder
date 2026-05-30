@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { openBrowser } = vi.hoisted(() => ({ openBrowser: vi.fn() }))
@@ -11,7 +11,7 @@ vi.mock('../../lib/desktopRuntime', async (orig) => ({
   getServerBaseUrl: () => 'http://127.0.0.1:4321',
 }))
 
-// Mock openTargetStore for the open-with menu
+// Mock openTargetStore for the open-with menu (used by the cards)
 const ensureTargets = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const openTargetFn = vi.hoisted(() => vi.fn())
 vi.mock('../../stores/openTargetStore', () => ({
@@ -20,29 +20,28 @@ vi.mock('../../stores/openTargetStore', () => ({
   },
 }))
 
-// Mock workspacePanelStore — workDir returns undefined (no active workspace)
+// Mock workspacePanelStore — usable both as a hook selector and via getState().
+// workDir is undefined (no active workspace) so relative paths resolve as-is.
 const openPreviewFn = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-vi.mock('../../stores/workspacePanelStore', () => ({
-  useWorkspacePanelStore: {
-    getState: () => ({
-      statusBySession: {},
-      openPreview: openPreviewFn,
-    }),
-  },
-}))
+vi.mock('../../stores/workspacePanelStore', () => {
+  const state = { statusBySession: {} as Record<string, { workDir?: string } | undefined>, openPreview: openPreviewFn }
+  const useWorkspacePanelStore = Object.assign(
+    (selector: (s: typeof state) => unknown) => selector(state),
+    { getState: () => state },
+  )
+  return { useWorkspacePanelStore }
+})
 
-// Mock tauri shell (used by openSystem inside handleContentClick)
+// Mock tauri shell (used by openSystem inside the card's open-with)
 const shellOpen = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 vi.mock('@tauri-apps/plugin-shell', () => ({ open: shellOpen }))
 
 // Mock i18n — return the key as the label so we can assert on keys
 vi.mock('../../i18n', () => ({
   useTranslation: () => (k: string, v?: Record<string, string>) => (v?.target ? `${k}:${v.target}` : k),
-  // TranslationKey is just a string-branded type; no runtime value needed
 }))
 
-// Mock settingsStore (pulled in transitively by i18n when NOT mocking i18n at module level)
-// (already covered by the i18n mock above, but add a safety net)
+// Mock settingsStore (safety net for transitive i18n usage)
 vi.mock('../../stores/settingsStore', () => ({
   useSettingsStore: Object.assign((sel: (s: { locale: string }) => unknown) => sel({ locale: 'en' }), {
     getState: () => ({ locale: 'en' }),
@@ -56,120 +55,74 @@ afterEach(() => {
   openBrowser.mockReset()
   ensureTargets.mockReset().mockResolvedValue(undefined)
   openTargetFn.mockReset()
+  openPreviewFn.mockReset().mockResolvedValue(undefined)
 })
 
 describe('AssistantMessage link routing', () => {
-  it('opens a localhost link in the in-app browser', () => {
+  it('opens a localhost link in the in-app browser on left-click', () => {
     render(<AssistantMessage sessionId="s1" content={'打开 [预览](http://localhost:5173/)'} />)
-    fireEvent.click(screen.getByText('预览'))
+    // The clickable element is the rendered markdown anchor (the card title is a span).
+    fireEvent.click(screen.getByRole('link', { name: '预览' }))
     expect(openBrowser).toHaveBeenCalledWith('s1', 'http://localhost:5173/')
   })
 })
 
-describe('AssistantMessage open-with trigger injection', () => {
-  it('injects a ▾ trigger for a previewable link after streaming ends', () => {
+describe('AssistantMessage output-target cards', () => {
+  it('renders a card for a localhost URL after streaming ends', () => {
     render(
       <AssistantMessage
         sessionId="s1"
-        content={'打开 [预览](http://localhost:5173/)'}
+        content={'本地服务运行在 http://localhost:5173/ 上'}
         isStreaming={false}
       />,
     )
-    expect(screen.getByLabelText('打开方式')).toBeInTheDocument()
+    expect(screen.getAllByText('http://localhost:5173/').length).toBeGreaterThan(0)
+    expect(screen.getByText('assistantOutputs.kind.localhost')).toBeInTheDocument()
   })
 
-  it('does NOT inject a trigger while streaming', () => {
+  it('renders a card for a markdown link with its Markdown badge', () => {
     render(
       <AssistantMessage
         sessionId="s1"
-        content={'打开 [预览](http://localhost:5173/)'}
+        content={'见 [说明文档](docs/readme.md)'}
+        isStreaming={false}
+      />,
+    )
+    // Link text appears in both the bubble anchor and the card title; the badge is unique.
+    expect(screen.getByRole('link', { name: '说明文档' })).toBeInTheDocument()
+    expect(screen.getByText('assistantOutputs.kind.markdown')).toBeInTheDocument()
+  })
+
+  it('does NOT render cards while streaming', () => {
+    render(
+      <AssistantMessage
+        sessionId="s1"
+        content={'本地服务运行在 http://localhost:5173/ 上'}
         isStreaming={true}
       />,
     )
-    expect(screen.queryByLabelText('打开方式')).toBeNull()
+    expect(screen.queryByText('assistantOutputs.kind.localhost')).toBeNull()
   })
 
-  it('does NOT inject a trigger for an ignored link (#anchor)', () => {
+  it('does NOT render cards when there are no previewable references', () => {
     render(
       <AssistantMessage
         sessionId="s1"
-        content={'[anchor](#section)'}
+        content={'装一下 `npm install` 然后看 [anchor](#section)'}
         isStreaming={false}
       />,
     )
-    expect(screen.queryByLabelText('打开方式')).toBeNull()
+    expect(screen.queryByText('assistantOutputs.kind.localhost')).toBeNull()
+    expect(screen.queryByText('Markdown')).toBeNull()
   })
 
-  it('does NOT inject a trigger when sessionId is absent', () => {
+  it('does NOT render cards when sessionId is absent', () => {
     render(
       <AssistantMessage
-        content={'打开 [预览](http://localhost:5173/)'}
+        content={'本地服务运行在 http://localhost:5173/ 上'}
         isStreaming={false}
       />,
     )
-    expect(screen.queryByLabelText('打开方式')).toBeNull()
-  })
-
-  it('clicking the ▾ trigger opens a menu with in-app-browser and system-browser items for a URL', async () => {
-    render(
-      <AssistantMessage
-        sessionId="s1"
-        content={'打开 [预览](http://localhost:5173/)'}
-        isStreaming={false}
-      />,
-    )
-
-    const trigger = screen.getByLabelText('打开方式')
-    fireEvent.click(trigger)
-
-    // Wait for the async ensureTargets chain to resolve and the menu to appear
-    await waitFor(() => {
-      // buildOpenWithItems for kind:'url' produces in-app + system keys
-      expect(screen.getByText('openWith.inAppBrowser')).toBeInTheDocument()
-    })
-    expect(screen.getByText('openWith.systemBrowser')).toBeInTheDocument()
-  })
-})
-
-describe('AssistantMessage open-with trigger injection — inline code URLs', () => {
-  it('injects a ▾ trigger next to an inline-code localhost URL', async () => {
-    render(
-      <AssistantMessage
-        sessionId="s1"
-        content={'运行地址 `http://localhost:9527/`'}
-        isStreaming={false}
-      />,
-    )
-    // The trigger comes from the <code> path (no <a> in this content)
-    expect(screen.getByLabelText('打开方式')).toBeInTheDocument()
-  })
-
-  it('clicking the trigger next to inline-code URL opens menu with in-app-browser and system-browser items', async () => {
-    render(
-      <AssistantMessage
-        sessionId="s1"
-        content={'运行地址 `http://localhost:9527/`'}
-        isStreaming={false}
-      />,
-    )
-
-    const trigger = screen.getByLabelText('打开方式')
-    fireEvent.click(trigger)
-
-    await waitFor(() => {
-      expect(screen.getByText('openWith.inAppBrowser')).toBeInTheDocument()
-    })
-    expect(screen.getByText('openWith.systemBrowser')).toBeInTheDocument()
-  })
-
-  it('does NOT inject a trigger for non-URL inline code', () => {
-    render(
-      <AssistantMessage
-        sessionId="s1"
-        content={'装一下 `npm install`'}
-        isStreaming={false}
-      />,
-    )
-    expect(screen.queryByLabelText('打开方式')).toBeNull()
+    expect(screen.queryByText('assistantOutputs.kind.localhost')).toBeNull()
   })
 })
