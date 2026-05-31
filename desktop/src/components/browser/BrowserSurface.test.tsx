@@ -77,6 +77,17 @@ describe('BrowserSurface', () => {
     expect(bridge.eval).toHaveBeenCalledWith(expect.stringContaining('capture'))
   })
 
+  it('places preview action buttons on the right side of the address toolbar', () => {
+    useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
+    useBrowserPanelStore.getState().setReady('s1')
+    render(<BrowserSurface sessionId="s1" />)
+
+    const actions = screen.getByTestId('browser-toolbar-actions')
+    expect(actions).toContainElement(screen.getByLabelText('截图'))
+    expect(actions).toContainElement(screen.getByLabelText('选择元素'))
+    expect(screen.getByRole('textbox').closest('form')!.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('选择元素 button toggles pickerActive and signals the bridge', () => {
     useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
     render(<BrowserSurface sessionId="s1" />)

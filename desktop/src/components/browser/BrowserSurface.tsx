@@ -86,6 +86,47 @@ export function BrowserSurface({ sessionId }: { sessionId: string }) {
     }
   }
 
+  const actionButtonClass = [
+    'inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]',
+  ].join(' ')
+
+  const previewActions = (
+    <>
+      <button
+        aria-label="截图"
+        title="截图"
+        className={[
+          actionButtonClass,
+          'border-transparent text-[var(--color-text-secondary)] hover:border-[var(--color-border)]',
+          'hover:bg-[var(--color-surface-container-low)] hover:text-[var(--color-text-primary)]',
+        ].join(' ')}
+        onClick={() => previewBridge.eval(`window.__PREVIEW_BRIDGE__?.handleHostRaw('{"v":1,"type":"capture","kind":"full"}')`)}
+      >
+        <Camera size={16} />
+      </button>
+      <button
+        aria-label="选择元素"
+        aria-pressed={Boolean(session.pickerActive)}
+        title="选择元素"
+        className={[
+          actionButtonClass,
+          session.pickerActive
+            ? 'border-[var(--color-brand)]/45 bg-[var(--color-surface-selected)] text-[var(--color-brand)]'
+            : 'border-transparent text-[var(--color-text-secondary)] hover:border-[var(--color-border)] hover:bg-[var(--color-surface-container-low)] hover:text-[var(--color-text-primary)]',
+        ].join(' ')}
+        onClick={() => {
+          const cur = useBrowserPanelStore.getState().bySession[sessionId]
+          const next = !cur?.pickerActive
+          store.setPicker(sessionId, next)
+          previewBridge.eval(`window.__PREVIEW_BRIDGE__?.handleHostRaw('{"v":1,"type":"${next ? 'enter-picker' : 'exit-picker'}"}')`)
+        }}
+      >
+        <MousePointer2 size={16} />
+      </button>
+    </>
+  )
+
   return (
     <div className="flex h-full flex-col">
       <BrowserAddressBar
@@ -101,36 +142,8 @@ export function BrowserSurface({ sessionId }: { sessionId: string }) {
           store.setLoading(sessionId, true)
           previewBridge.navigate(session.url)
         }}
+        rightActions={previewActions}
       />
-      <div className="flex h-10 items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-surface-container-lowest)] px-2">
-        <button
-          aria-label="截图"
-          title="截图"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border)] hover:bg-[var(--color-surface-container-low)] hover:text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]"
-          onClick={() => previewBridge.eval(`window.__PREVIEW_BRIDGE__?.handleHostRaw('{"v":1,"type":"capture","kind":"full"}')`)}
-        >
-          <Camera size={16} />
-        </button>
-        <button
-          aria-label="选择元素"
-          aria-pressed={Boolean(session.pickerActive)}
-          title="选择元素"
-          className={[
-            'inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]',
-            session.pickerActive
-              ? 'border-[var(--color-brand)]/45 bg-[var(--color-surface-selected)] text-[var(--color-brand)]'
-              : 'border-transparent text-[var(--color-text-secondary)] hover:border-[var(--color-border)] hover:bg-[var(--color-surface-container-low)] hover:text-[var(--color-text-primary)]',
-          ].join(' ')}
-          onClick={() => {
-            const cur = useBrowserPanelStore.getState().bySession[sessionId]
-            const next = !cur?.pickerActive
-            store.setPicker(sessionId, next)
-            previewBridge.eval(`window.__PREVIEW_BRIDGE__?.handleHostRaw('{"v":1,"type":"${next ? 'enter-picker' : 'exit-picker'}"}')`)
-          }}
-        >
-          <MousePointer2 size={16} />
-        </button>
-      </div>
       <div ref={hostRef} className="flex-1" data-testid="preview-host" />
     </div>
   )

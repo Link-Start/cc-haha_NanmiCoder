@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom'
 import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentGallery } from './AttachmentGallery'
@@ -81,8 +82,12 @@ describe('AttachmentGallery', () => {
 
     expect(view.getByRole('button', { name: 'Open <h1>' })).toBeTruthy()
     const noteChip = view.getByLabelText('Selection note: 这个标题更轻一点')
+    const tooltip = view.getByRole('tooltip')
     expect(noteChip.textContent).toContain('<h1>')
     expect(noteChip.getAttribute('title')).toBe('这个标题更轻一点')
-    expect(document.body.textContent).not.toContain('这个标题更轻一点')
+    expect(noteChip).toHaveAttribute('aria-describedby', tooltip.id)
+    expect(tooltip).toHaveTextContent('修改内容')
+    expect(tooltip).toHaveTextContent('这个标题更轻一点')
+    expect(tooltip.className).toContain('group-hover/selection:visible')
   })
 })
