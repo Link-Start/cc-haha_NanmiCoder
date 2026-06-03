@@ -58,10 +58,35 @@ export function isWindowStateVisibleOnAnyDisplay(
   )
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+export function clampWindowStateToVisibleWorkArea(
+  state: StoredWindowState,
+  displays: Array<Pick<Display, 'bounds' | 'workArea'>>,
+): StoredWindowState {
+  const display = displays.find(candidate =>
+    hasMeaningfulIntersection(state, candidate.workArea ?? candidate.bounds),
+  )
+  if (!display) return state
+
+  const workArea = display.workArea ?? display.bounds
+  const maxX = workArea.x + Math.max(0, workArea.width - state.width)
+  const maxY = workArea.y + Math.max(0, workArea.height - state.height)
+
+  return {
+    ...state,
+    x: clamp(state.x, workArea.x, maxX),
+    y: clamp(state.y, workArea.y, maxY),
+  }
+}
+
 export function readWindowState(
   app: App,
   displays: Array<Pick<Display, 'bounds' | 'workArea'>>,
   env: NodeJS.ProcessEnv = process.env,
+  platform = process.platform,
 ): StoredWindowState | null {
   const statePath = windowStatePath(app, env)
   if (!existsSync(statePath)) return null
@@ -70,7 +95,9 @@ export function readWindowState(
     const parsed = JSON.parse(readFileSync(statePath, 'utf-8')) as StoredWindowState
     if (!isPersistableWindowState(parsed)) return null
     if (!isWindowStateVisibleOnAnyDisplay(parsed, displays)) return null
-    return parsed
+    return platform === 'darwin'
+      ? clampWindowStateToVisibleWorkArea(parsed, displays)
+      : parsed
   } catch (error) {
     console.error(`[desktop] failed to read Electron window state ${statePath}:`, error)
     return null
@@ -147,8 +174,13 @@ export function toggleWindowFullScreen(window: BrowserWindow, platform = process
   window.setFullScreen(!window.isFullScreen())
 }
 
-export function showMainWindow(window: BrowserWindow | null) {
+type MacOsWindowVisibilityApp = {
+  show?: () => void
+}
+
+export function showMainWindow(window: BrowserWindow | null, app?: MacOsWindowVisibilityApp) {
   if (!window) return
+  app?.show?.()
   if (!window.isVisible()) window.show()
   if (window.isMinimized()) window.restore()
   window.focus()

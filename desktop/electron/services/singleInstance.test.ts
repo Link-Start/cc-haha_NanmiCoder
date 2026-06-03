@@ -30,13 +30,29 @@ describe('Electron single-instance service', () => {
   })
 
   it('registers a second-instance focus handler after acquiring the lock', () => {
+    let secondInstanceHandler: (() => void) | undefined
+    const window = {
+      isVisible: () => false,
+      isMinimized: () => false,
+      show: vi.fn(),
+      restore: vi.fn(),
+      focus: vi.fn(),
+    }
     const app = {
       requestSingleInstanceLock: vi.fn(() => true),
       quit: vi.fn(),
-      on: vi.fn(),
+      show: vi.fn(),
+      on: vi.fn((_event: string, handler: () => void) => {
+        secondInstanceHandler = handler
+      }),
     }
 
-    expect(acquireSingleInstanceLock(app as never, () => null)).toBe(true)
+    expect(acquireSingleInstanceLock(app as never, () => window as never)).toBe(true)
     expect(app.on).toHaveBeenCalledWith('second-instance', expect.any(Function))
+
+    secondInstanceHandler?.()
+    expect(app.show).toHaveBeenCalledTimes(1)
+    expect(window.show).toHaveBeenCalledTimes(1)
+    expect(window.focus).toHaveBeenCalledTimes(1)
   })
 })

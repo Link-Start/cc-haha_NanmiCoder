@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { installTray, resolveTrayIconPath } from './tray'
+import { installTray, resolveTrayIconPath, shouldInstallTray } from './tray'
 
 const trayMocksKey = '__electronTrayMocks'
 
@@ -66,6 +66,12 @@ describe('Electron tray service', () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+
+  it('skips the status-bar tray on macOS and keeps it on Windows and Linux', () => {
+    expect(shouldInstallTray('darwin')).toBe(false)
+    expect(shouldInstallTray('win32')).toBe(true)
+    expect(shouldInstallTray('linux')).toBe(true)
   })
 
   it('installs tray handlers that show the app, quit explicitly, and dispose cleanly', async () => {

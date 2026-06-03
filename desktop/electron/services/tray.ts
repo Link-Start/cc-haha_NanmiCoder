@@ -20,6 +20,10 @@ export function resolveTrayIconPath(desktopRoot: string): string {
   return resolved
 }
 
+export function shouldInstallTray(platform = process.platform): boolean {
+  return platform !== 'darwin'
+}
+
 export async function installTray({
   app,
   desktopRoot,

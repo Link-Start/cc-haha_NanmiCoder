@@ -13,7 +13,7 @@ import {
 } from './services/notifications'
 import { installApplicationMenu } from './services/menu'
 import { acquireSingleInstanceLock } from './services/singleInstance'
-import { installTray, type TrayController } from './services/tray'
+import { installTray, shouldInstallTray, type TrayController } from './services/tray'
 import { ElectronUpdaterService } from './services/updater'
 import { createUpdateSmokeUpdaterFromEnv } from './services/updateSmoke'
 import { ElectronTerminalService, type TerminalSpawnInput } from './services/terminal'
@@ -161,7 +161,7 @@ function unsupported(name: string): never {
 }
 
 function emitNotificationAction(payload: unknown) {
-  showMainWindow(mainWindow)
+  showMainWindow(mainWindow, app)
   mainWindow?.webContents.send(ELECTRON_EVENT_CHANNELS.notificationAction, payload)
 }
 
@@ -314,8 +314,6 @@ async function createMainWindow() {
   })
 
   writeWindowSmokeSnapshot(mainWindow, 'after-create')
-  showMainWindow(mainWindow)
-  writeWindowSmokeSnapshot(mainWindow, 'after-initial-show')
 
   const entry = rendererEntry()
   if (/^https?:\/\//.test(entry)) {
@@ -325,7 +323,7 @@ async function createMainWindow() {
   }
 
   restoreWindowMaximized(mainWindow, restoredState)
-  showMainWindow(mainWindow)
+  showMainWindow(mainWindow, app)
   writeWindowSmokeSnapshot(mainWindow, 'after-final-show')
 }
 
@@ -341,18 +339,20 @@ app.whenReady().then(async () => {
     console.error('[desktop] failed to start Electron server sidecar', error)
   })
   await installApplicationMenu(app, () => mainWindow)
-  trayController = await installTray({
-    app,
-    desktopRoot: appRoot(),
-    show: () => showMainWindow(mainWindow),
-    quit: () => {
-      isQuitting = true
-      app.quit()
-    },
-  }).catch(error => {
-    console.error('[desktop] failed to create Electron tray', error)
-    return null
-  })
+  if (shouldInstallTray(process.platform)) {
+    trayController = await installTray({
+      app,
+      desktopRoot: appRoot(),
+      show: () => showMainWindow(mainWindow, app),
+      quit: () => {
+        isQuitting = true
+        app.quit()
+      },
+    }).catch(error => {
+      console.error('[desktop] failed to create Electron tray', error)
+      return null
+    })
+  }
   await createMainWindow()
   scheduleNotificationSmoke({
     env: process.env,
@@ -362,7 +362,7 @@ app.whenReady().then(async () => {
 
   app.on('activate', () => {
     if (mainWindow) {
-      showMainWindow(mainWindow)
+      showMainWindow(mainWindow, app)
       return
     }
     void createMainWindow()

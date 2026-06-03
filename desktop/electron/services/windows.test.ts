@@ -3,6 +3,7 @@ import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  clampWindowStateToVisibleWorkArea,
   captureWindowState,
   hideWindowSafely,
   hasMeaningfulIntersection,
@@ -62,12 +63,39 @@ describe('Electron window service', () => {
         app as never,
         [{ bounds: { x: 0, y: 0, width: 1440, height: 900 }, workArea: { x: 0, y: 0, width: 1440, height: 860 } }],
         {},
+        'linux',
       )).toEqual(state)
       expect(readWindowState(
         app as never,
         [{ bounds: { x: 3000, y: 3000, width: 1440, height: 900 }, workArea: { x: 3000, y: 3000, width: 1440, height: 860 } }],
         {},
+        'linux',
       )).toBeNull()
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('clamps restored macOS windows below the menu bar work area', () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'electron-window-state-clamp-'))
+    try {
+      const app = fakeApp(tmp)
+      const state = { x: 620, y: 0, width: 1280, height: 820, maximized: false }
+      const display = {
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 40, width: 2560, height: 1320 },
+      }
+      writeWindowState(app as never, state, {})
+
+      expect(clampWindowStateToVisibleWorkArea(state, [display])).toEqual({
+        ...state,
+        y: 40,
+      })
+      expect(readWindowState(app as never, [display], {}, 'darwin')).toEqual({
+        ...state,
+        y: 40,
+      })
+      expect(readWindowState(app as never, [display], {}, 'linux')).toEqual(state)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
@@ -106,9 +134,13 @@ describe('Electron window service', () => {
       restore: vi.fn(),
       focus: vi.fn(),
     }
+    const app = {
+      show: vi.fn(),
+    }
 
-    showMainWindow(window as never)
+    showMainWindow(window as never, app)
 
+    expect(app.show).toHaveBeenCalledTimes(1)
     expect(window.show).toHaveBeenCalledTimes(1)
     expect(window.restore).toHaveBeenCalledTimes(1)
     expect(window.focus).toHaveBeenCalledTimes(1)

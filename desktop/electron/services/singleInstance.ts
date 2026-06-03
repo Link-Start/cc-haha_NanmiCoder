@@ -17,7 +17,7 @@ export function acquireSingleInstanceLock(
   }
 
   app.on('second-instance', () => {
-    showMainWindow(getMainWindow())
+    showMainWindow(getMainWindow(), app)
   })
 
   return true
