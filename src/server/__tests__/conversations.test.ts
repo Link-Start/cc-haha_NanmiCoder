@@ -2927,6 +2927,137 @@ describe('WebSocket Chat Integration', () => {
     })
   }, 20_000)
 
+  it('should defer bypass permission restarts until the active turn completes', async () => {
+    await withMockStreamDelay(350, async () => {
+      await fetch(`${baseUrl}/api/permissions/mode`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'default' }),
+      })
+
+      const createRes = await fetch(`${baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workDir: process.cwd() }),
+      })
+      expect(createRes.status).toBe(201)
+      const { sessionId } = await createRes.json() as { sessionId: string }
+
+      const originalStartSession = conversationService.startSession.bind(conversationService)
+      const startCalls: Array<{
+        sessionId: string
+        options: { permissionMode?: string; model?: string; effort?: string; providerId?: string | null } | undefined
+      }> = []
+
+      conversationService.startSession = (async function patchedStartSession(
+        sid: string,
+        workDir: string,
+        sdkUrl: string,
+        options?: { permissionMode?: string; model?: string; effort?: string; thinking?: 'enabled' | 'adaptive' | 'disabled'; providerId?: string | null },
+      ) {
+        startCalls.push({ sessionId: sid, options })
+        return originalStartSession(sid, workDir, sdkUrl, options)
+      }) as typeof conversationService.startSession
+
+      const ws = new WebSocket(`${wsUrl}/ws/${sessionId}`)
+      let switchTriggered = false
+      let turnComplete = false
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            ws.close()
+            reject(new Error(`Timed out waiting for active-turn permission switch for session ${sessionId}`))
+          }, 10_000)
+
+          ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data as string)
+
+            if (msg.type === 'connected') {
+              ws.send(JSON.stringify({ type: 'user_message', content: 'active turn permission switch' }))
+              return
+            }
+
+            if (msg.type === 'error') {
+              clearTimeout(timeout)
+              ws.close()
+              reject(new Error(msg.message))
+              return
+            }
+
+            if (
+              msg.type === 'content_delta' &&
+              typeof msg.text === 'string' &&
+              msg.text.includes('active turn permission switch') &&
+              !switchTriggered
+            ) {
+              switchTriggered = true
+              ws.send(JSON.stringify({
+                type: 'set_permission_mode',
+                mode: 'bypassPermissions',
+              }))
+              return
+            }
+
+            if (
+              msg.type === 'status' &&
+              msg.state === 'idle' &&
+              switchTriggered &&
+              !turnComplete &&
+              startCalls.length > 1
+            ) {
+              clearTimeout(timeout)
+              ws.close()
+              reject(new Error('Permission restart ran before the active turn completed'))
+              return
+            }
+
+            if (msg.type === 'message_complete' && switchTriggered && !turnComplete) {
+              turnComplete = true
+              expect(startCalls).toHaveLength(1)
+              return
+            }
+
+            if (msg.type === 'status' && msg.state === 'idle' && turnComplete && startCalls.length > 1) {
+              clearTimeout(timeout)
+              ws.close()
+              resolve()
+            }
+          }
+
+          ws.onerror = () => {
+            clearTimeout(timeout)
+            reject(new Error(`WebSocket error for active-turn permission switch session ${sessionId}`))
+          }
+        })
+
+        expect(switchTriggered).toBe(true)
+        expect(turnComplete).toBe(true)
+        expect(startCalls).toHaveLength(2)
+        expect(startCalls[0]).toMatchObject({
+          sessionId,
+          options: {
+            permissionMode: 'default',
+          },
+        })
+        expect(startCalls[1]).toMatchObject({
+          sessionId,
+          options: {
+            permissionMode: 'bypassPermissions',
+          },
+        })
+      } finally {
+        ws.close()
+        conversationService.startSession = originalStartSession
+        conversationService.stopSession(sessionId)
+        await fetch(`${baseUrl}/api/permissions/mode`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'default' }),
+        })
+      }
+    })
+  }, 20_000)
+
   it('should keep the session idle in the UI while restarting for a bypass permission switch', async () => {
     await fetch(`${baseUrl}/api/permissions/mode`, {
       method: 'PUT',

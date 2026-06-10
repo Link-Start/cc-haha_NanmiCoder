@@ -89,6 +89,7 @@ type ActiveUserTurnState = {
 const runtimeOverrides = new Map<string, RuntimeOverride>()
 const activeUserTurns = new Map<string, ActiveUserTurnState>()
 const deferredRuntimeRestarts = new Map<string, RuntimeOverride>()
+const deferredPermissionModes = new Map<string, string>()
 
 const runtimeTransitionPromises = new Map<string, Promise<void>>()
 const sessionStartupPromises = new Map<string, Promise<void>>()
@@ -444,6 +445,7 @@ function bindActiveUserTurnCompletion(
 
     conversationService.removeOutputCallback(sessionId, callback)
     clearActiveUserTurn(sessionId, activeTurn)
+    applyDeferredPermissionModeAfterActiveTurn(ws, sessionId)
     applyDeferredRuntimeRestartAfterActiveTurn(ws, sessionId)
   }
 
@@ -453,6 +455,20 @@ function bindActiveUserTurnCompletion(
 
 function shouldDeferRuntimeRestartForActiveTurn(sessionId: string): boolean {
   return activeUserTurns.get(sessionId)?.messageSent === true
+}
+
+function applyDeferredPermissionModeAfterActiveTurn(
+  ws: ServerWebSocket<WebSocketData>,
+  sessionId: string,
+): void {
+  const deferredMode = deferredPermissionModes.get(sessionId)
+  if (!deferredMode) return
+
+  deferredPermissionModes.delete(sessionId)
+  void enqueueRuntimeTransition(sessionId, async () => {
+    if (!conversationService.hasSession(sessionId)) return
+    await applyPermissionModeToActiveSession(ws, sessionId, deferredMode)
+  })
 }
 
 function applyDeferredRuntimeRestartAfterActiveTurn(
@@ -626,8 +642,13 @@ async function applyPermissionModeToActiveSession(
   mode: string,
 ): Promise<void> {
   const currentMode = conversationService.getSessionPermissionMode(sessionId)
-  if (currentMode === mode) return
+  if (shouldDeferRuntimeRestartForActiveTurn(sessionId)) {
+    deferredPermissionModes.set(sessionId, mode)
+    await persistSessionPermissionMode(sessionId, mode)
+    return
+  }
 
+  if (currentMode === mode) return
   const needsRestart = shouldRestartForPermissionMode(currentMode, mode)
 
   if (needsRestart) {
@@ -1159,6 +1180,7 @@ function cleanupSessionRuntimeState(sessionId: string) {
   runtimeOverrides.delete(sessionId)
   activeUserTurns.delete(sessionId)
   deferredRuntimeRestarts.delete(sessionId)
+  deferredPermissionModes.delete(sessionId)
   runtimeTransitionPromises.delete(sessionId)
   sessionStartupPromises.delete(sessionId)
   lastResolvedStartupWorkDirs.delete(sessionId)
