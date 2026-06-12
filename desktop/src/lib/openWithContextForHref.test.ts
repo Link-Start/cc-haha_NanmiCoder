@@ -68,6 +68,17 @@ describe('openWithContextForWorkspaceFile', () => {
     })
   })
 
+  it('generated *_files index.html rel path → has inAppBrowserUrl equal to previewFsUrl', () => {
+    const result = openWithContextForWorkspaceFile('66estmutl_files/index.html', '/w/proj/66estmutl_files/index.html', { sessionId: SESSION, serverBaseUrl: BASE })
+    expect(result).toEqual({
+      kind: 'file',
+      absolutePath: '/w/proj/66estmutl_files/index.html',
+      relPath: '66estmutl_files/index.html',
+      previewable: true,
+      inAppBrowserUrl: previewFsUrl(BASE, SESSION, '66estmutl_files/index.html'),
+    })
+  })
+
   it('built dist index.html rel path → has inAppBrowserUrl equal to previewFsUrl', () => {
     const result = openWithContextForWorkspaceFile('todo-app/dist/index.html', '/w/proj/todo-app/dist/index.html', { sessionId: SESSION, serverBaseUrl: BASE })
     expect(result).toEqual({

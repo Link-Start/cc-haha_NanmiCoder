@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 beforeAll(() => {
@@ -22,6 +22,7 @@ import { useOverlayStore } from '../../stores/overlayStore'
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   Object.values(bridge).forEach((f) => f.mockReset())
   useBrowserPanelStore.setState(useBrowserPanelStore.getInitialState(), true)
   // browserPanelStore.open() now also opens the unified workbench; keep it isolated.
@@ -34,6 +35,28 @@ describe('BrowserSurface', () => {
     useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
     render(<BrowserSurface sessionId="s1" />)
     expect(bridge.open).toHaveBeenCalledWith('http://localhost:5173/', expect.objectContaining({ width: expect.any(Number) }))
+  })
+
+  it('waits for local preview URLs before opening the native preview', async () => {
+    const url = 'http://127.0.0.1:59028/preview-fs/s1/66estmutl_files/index.html'
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }))
+    useBrowserPanelStore.getState().open('s1', url)
+    render(<BrowserSurface sessionId="s1" />)
+
+    expect(within(screen.getByTestId('preview-host')).getByLabelText('加载中')).toBeInTheDocument()
+    expect(bridge.open).not.toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(url, expect.objectContaining({
+        method: 'HEAD',
+        cache: 'no-store',
+      }))
+    })
+    await waitFor(() => {
+      expect(bridge.open).toHaveBeenCalledWith(url, expect.objectContaining({ width: expect.any(Number) }))
+    })
+
+    fetchSpy.mockRestore()
   })
 
   it('renders an empty address bar without opening a preview for a blank session', () => {
@@ -131,7 +154,9 @@ describe('BrowserSurface', () => {
       useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
       render(<BrowserSurface sessionId="s1" />)
       expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
-      vi.advanceTimersByTime(15000)
+      act(() => {
+        vi.advanceTimersByTime(15000)
+      })
       expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(false)
     } finally {
       vi.useRealTimers()

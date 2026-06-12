@@ -1,5 +1,6 @@
 const HTML_EXT = /\.(html?|xhtml)$/i
 const INDEX_HTML_RE = /(^|\/)index\.html?$/i
+const GENERATED_STATIC_FILES_DIR_RE = /(^|\/)[^/]+_files\/index\.html?$/i
 
 const STATIC_OUTPUT_DIRS = new Set([
   'build',
@@ -28,6 +29,7 @@ export function shouldOfferStaticHtmlPreview(filePath: string): boolean {
   const normalized = normalizePathForPolicy(filePath)
   if (!HTML_EXT.test(normalized)) return false
   if (!INDEX_HTML_RE.test(normalized)) return true
+  if (GENERATED_STATIC_FILES_DIR_RE.test(normalized)) return true
 
   return normalized
     .split('/')

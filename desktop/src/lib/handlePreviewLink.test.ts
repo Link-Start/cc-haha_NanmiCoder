@@ -64,6 +64,17 @@ describe('handlePreviewLink', () => {
     expect(deps.openFilePreview).not.toHaveBeenCalled()
   })
 
+  it('routes generated *_files index.html to openBrowser with the preview-fs url', () => {
+    const deps = makeDeps()
+    const handled = handlePreviewLink('66estmutl_files/index.html', deps)
+    expect(handled).toBe(true)
+    expect(deps.openBrowser).toHaveBeenCalledWith(
+      's1',
+      'http://127.0.0.1:8787/preview-fs/s1/66estmutl_files/index.html',
+    )
+    expect(deps.openFilePreview).not.toHaveBeenCalled()
+  })
+
   it('routes a frontend project index.html to workspace preview instead of static browser preview', () => {
     const deps = makeDeps()
     const handled = handlePreviewLink('todo-app/index.html', deps)
