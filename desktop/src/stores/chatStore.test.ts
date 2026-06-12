@@ -1363,6 +1363,56 @@ describe('chatStore history mapping', () => {
     )
   })
 
+  it('keeps queued message model context when editing the visible prompt text', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: makeSession({
+          chatState: 'streaming',
+        }),
+      },
+    })
+
+    const id = useChatStore.getState().queueUserMessage(TEST_SESSION_ID, {
+      content: 'Referenced workspace context:\n@"src/App.tsx:L4":\n```tsx\nconst value = 1\n```\n\nfix this',
+      attachments: [{
+        type: 'file',
+        name: 'App.tsx',
+        path: '/repo/src/App.tsx',
+        lineStart: 4,
+        lineEnd: 4,
+      }],
+      displayContent: 'fix this',
+      displayAttachments: [{
+        type: 'file',
+        name: 'App.tsx',
+        path: 'src/App.tsx',
+        lineStart: 4,
+        lineEnd: 4,
+      }],
+    })
+
+    useChatStore.getState().updateQueuedUserMessage(TEST_SESSION_ID, id, 'tighten this')
+
+    expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.queuedUserMessages?.[0]).toMatchObject({
+      displayContent: 'tighten this',
+      content: 'Referenced workspace context:\n@"src/App.tsx:L4":\n```tsx\nconst value = 1\n```\n\ntighten this',
+    })
+
+    useChatStore.getState().sendQueuedUserMessage(TEST_SESSION_ID, id)
+
+    expect(sendMock).toHaveBeenCalledWith(TEST_SESSION_ID, {
+      type: 'user_message',
+      content: 'Referenced workspace context:\n@"src/App.tsx:L4":\n```tsx\nconst value = 1\n```\n\ntighten this',
+      attachments: [{
+        type: 'file',
+        name: 'App.tsx',
+        path: '/repo/src/App.tsx',
+        lineStart: 4,
+        lineEnd: 4,
+      }],
+    })
+  })
+
   it('can send a visual selection turn without rendering the full model prompt as user text', () => {
     useChatStore.setState({
       sessions: {

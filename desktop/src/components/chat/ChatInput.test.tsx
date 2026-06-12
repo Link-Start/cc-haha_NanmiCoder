@@ -405,6 +405,177 @@ describe('ChatInput file mentions', () => {
     })
   })
 
+  it('queues prompts submitted while a turn is running until the user guides them', async () => {
+    useChatStore.setState({
+      sessions: {
+        [sessionId]: {
+          messages: [{ id: 'assistant-stream', type: 'assistant_text', content: 'working', timestamp: 1 }],
+          chatState: 'streaming',
+          connectionState: 'connected',
+          streamingText: 'still answering',
+          streamingToolInput: '',
+          activeToolUseId: null,
+          activeToolName: null,
+          activeThinkingId: null,
+          pendingPermission: null,
+          pendingComputerUsePermission: null,
+          tokenUsage: { input_tokens: 0, output_tokens: 0 },
+          streamingResponseChars: 0,
+          elapsedSeconds: 12,
+          statusVerb: '',
+          slashCommands: [],
+          agentTaskNotifications: {},
+          elapsedTimer: null,
+        },
+      },
+    })
+
+    render(<ChatInput compact />)
+
+    const input = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(input, {
+      target: { value: 'please adjust the current direction', selectionStart: 35 },
+    })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(mocks.wsSend).not.toHaveBeenCalledWith(sessionId, expect.objectContaining({
+      type: 'user_message',
+    }))
+    expect(input.value).toBe('')
+    expect(screen.getByTestId('pending-user-message')).toHaveTextContent('please adjust the current direction')
+
+    fireEvent.click(screen.getByRole('button', { name: /Guide now/i }))
+
+    expect(mocks.wsSend).toHaveBeenCalledWith(sessionId, {
+      type: 'user_message',
+      content: 'please adjust the current direction',
+      attachments: [],
+    })
+    expect(screen.queryByTestId('pending-user-message')).not.toBeInTheDocument()
+    expect(useChatStore.getState().sessions[sessionId]?.messages.at(-1)).toMatchObject({
+      type: 'assistant_text',
+      content: 'working',
+    })
+
+    act(() => {
+      useChatStore.getState().handleServerMessage(sessionId, {
+        type: 'user_message_replay',
+        content: 'please adjust the current direction',
+      })
+    })
+
+    expect(useChatStore.getState().sessions[sessionId]?.messages.at(-1)).toMatchObject({
+      type: 'user_text',
+      content: 'please adjust the current direction',
+    })
+  })
+
+  it('edits and deletes queued prompts without sending them', async () => {
+    useChatStore.setState({
+      sessions: {
+        [sessionId]: {
+          messages: [{ id: 'assistant-stream', type: 'assistant_text', content: 'working', timestamp: 1 }],
+          chatState: 'streaming',
+          connectionState: 'connected',
+          streamingText: '',
+          streamingToolInput: '',
+          activeToolUseId: null,
+          activeToolName: null,
+          activeThinkingId: null,
+          pendingPermission: null,
+          pendingComputerUsePermission: null,
+          tokenUsage: { input_tokens: 0, output_tokens: 0 },
+          streamingResponseChars: 0,
+          elapsedSeconds: 12,
+          statusVerb: '',
+          slashCommands: [],
+          agentTaskNotifications: {},
+          elapsedTimer: null,
+        },
+      },
+    })
+
+    render(<ChatInput compact />)
+
+    const input = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(input, {
+      target: { value: 'first queued draft', selectionStart: 18 },
+    })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit queued message/i }))
+    const editInput = screen.getByLabelText('Queued message text')
+    fireEvent.change(editInput, {
+      target: { value: 'edited queued draft' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByTestId('pending-user-message')).toHaveTextContent('edited queued draft')
+
+    fireEvent.click(screen.getByRole('button', { name: /Delete queued message/i }))
+
+    expect(screen.queryByTestId('pending-user-message')).not.toBeInTheDocument()
+    expect(mocks.wsSend).not.toHaveBeenCalledWith(sessionId, expect.objectContaining({
+      type: 'user_message',
+    }))
+  })
+
+  it('sends a queued prompt as the next tail message when the running turn completes', async () => {
+    useChatStore.setState({
+      sessions: {
+        [sessionId]: {
+          messages: [{ id: 'assistant-stream', type: 'assistant_text', content: 'working', timestamp: 1 }],
+          chatState: 'streaming',
+          connectionState: 'connected',
+          streamingText: 'done now',
+          streamingToolInput: '',
+          activeToolUseId: null,
+          activeToolName: null,
+          activeThinkingId: null,
+          pendingPermission: null,
+          pendingComputerUsePermission: null,
+          tokenUsage: { input_tokens: 0, output_tokens: 0 },
+          streamingResponseChars: 0,
+          elapsedSeconds: 12,
+          statusVerb: '',
+          slashCommands: [],
+          agentTaskNotifications: {},
+          elapsedTimer: null,
+        },
+      },
+    })
+
+    render(<ChatInput compact />)
+
+    const input = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(input, {
+      target: { value: 'continue after completion', selectionStart: 25 },
+    })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.getByTestId('pending-user-message')).toHaveTextContent('continue after completion')
+    expect(mocks.wsSend).not.toHaveBeenCalledWith(sessionId, expect.objectContaining({
+      type: 'user_message',
+    }))
+
+    act(() => {
+      useChatStore.getState().handleServerMessage(sessionId, {
+        type: 'message_complete',
+        usage: { input_tokens: 1, output_tokens: 2 },
+      })
+    })
+
+    expect(mocks.wsSend).toHaveBeenCalledWith(sessionId, {
+      type: 'user_message',
+      content: 'continue after completion',
+      attachments: [],
+    })
+    expect(useChatStore.getState().sessions[sessionId]?.messages).toMatchObject([
+      { type: 'assistant_text', content: 'workingdone now' },
+      { type: 'user_text', content: 'continue after completion' },
+    ])
+  })
+
   it('shows branch and worktree launch controls for an empty active Git session', async () => {
     useSessionStore.setState({
       sessions: [{

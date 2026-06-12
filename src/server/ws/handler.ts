@@ -1491,6 +1491,14 @@ export function translateCliMessage(cliMsg: any, sessionId: string): ServerMessa
         }
       }
 
+      const replayText = extractReplayUserText(cliMsg)
+      if (replayText) {
+        messages.push({
+          type: 'user_message_replay',
+          content: replayText,
+        })
+      }
+
       return messages
     }
 
@@ -2201,6 +2209,39 @@ function isCompactSummaryMessageContent(content: unknown): content is string {
       'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.',
     )
   )
+}
+
+function hasToolResultBlock(content: unknown): boolean {
+  return Array.isArray(content) &&
+    content.some((block) =>
+      Boolean(block) &&
+      typeof block === 'object' &&
+      (block as { type?: unknown }).type === 'tool_result')
+}
+
+function extractReplayUserText(cliMsg: any): string | null {
+  if (cliMsg?.isReplay !== true) return null
+  const content = cliMsg.message?.content
+  if (isCompactSummaryMessageContent(content)) return null
+  if (hasToolResultBlock(content)) return null
+  if (extractLocalCommandOutput(content)) return null
+
+  const text = typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? content
+        .flatMap((block) => {
+          if (!block || typeof block !== 'object') return []
+          const typedBlock = block as { type?: unknown; text?: unknown }
+          return typedBlock.type === 'text' && typeof typedBlock.text === 'string'
+            ? [typedBlock.text]
+            : []
+        })
+        .join('\n')
+      : ''
+
+  const trimmed = text.trim()
+  return trimmed || null
 }
 
 function addActiveClient(

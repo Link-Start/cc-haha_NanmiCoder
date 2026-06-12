@@ -62,6 +62,7 @@ export type ServerMessage =
       requestId: string
       request: ComputerUsePermissionRequest
     }
+  | { type: 'user_message_replay'; content: string }
   | { type: 'message_complete'; usage: TokenUsage }
   | { type: 'thinking'; text: string }
   | { type: 'status'; state: ChatState; verb?: string }

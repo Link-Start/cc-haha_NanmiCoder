@@ -42,6 +42,15 @@ export type ComposerDraftState = {
   attachments: ComposerAttachment[]
 }
 
+export type QueuedUserMessage = {
+  id: string
+  content: string
+  attachments?: AttachmentRef[]
+  displayContent: string
+  displayAttachments?: AttachmentRef[]
+  createdAt: number
+}
+
 export type ComposerReferenceInsertion = {
   text: string
   reference?: {
@@ -101,6 +110,7 @@ export type PerSessionState = {
   } | null
   composerInsertion?: ComposerReferenceInsertion | null
   composerDraft?: ComposerDraftState | null
+  queuedUserMessages?: QueuedUserMessage[]
 }
 
 const DEFAULT_SESSION_STATE: PerSessionState = {
@@ -129,10 +139,16 @@ const DEFAULT_SESSION_STATE: PerSessionState = {
   composerPrefill: null,
   composerInsertion: null,
   composerDraft: null,
+  queuedUserMessages: [],
 }
 
 function createDefaultSessionState(): PerSessionState {
-  return { ...DEFAULT_SESSION_STATE, messages: [], tokenUsage: { input_tokens: 0, output_tokens: 0 } }
+  return {
+    ...DEFAULT_SESSION_STATE,
+    messages: [],
+    tokenUsage: { input_tokens: 0, output_tokens: 0 },
+    queuedUserMessages: [],
+  }
 }
 
 type ChatStore = {
@@ -180,6 +196,13 @@ type ChatStore = {
   clearComposerInsertion: (sessionId: string, nonce?: number) => void
   setComposerDraft: (sessionId: string, draft: ComposerDraftState) => void
   clearComposerDraft: (sessionId: string) => void
+  queueUserMessage: (
+    sessionId: string,
+    message: Omit<QueuedUserMessage, 'id' | 'createdAt'>,
+  ) => string
+  updateQueuedUserMessage: (sessionId: string, messageId: string, content: string) => void
+  removeQueuedUserMessage: (sessionId: string, messageId: string) => void
+  sendQueuedUserMessage: (sessionId: string, messageId: string) => void
   clearMessages: (sessionId: string) => void
   handleServerMessage: (sessionId: string, msg: ServerMessage) => void
 }
@@ -839,6 +862,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           messages: existing?.messages ?? [],
           activeGoal: existing?.activeGoal ?? null,
           composerDraft: existing?.composerDraft ?? null,
+          queuedUserMessages: existing?.queuedUserMessages ?? [],
         },
       },
     }))
@@ -1279,6 +1303,82 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }))
   },
 
+  queueUserMessage: (sessionId, message) => {
+    const id = `queued-user-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    set((state) => {
+      const session = state.sessions[sessionId] ?? createDefaultSessionState()
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            queuedUserMessages: [
+              ...(session.queuedUserMessages ?? []),
+              {
+                ...message,
+                id,
+                createdAt: Date.now(),
+              },
+            ],
+          },
+        },
+      }
+    })
+    return id
+  },
+
+  updateQueuedUserMessage: (sessionId, messageId, content) => {
+    const nextContent = content.trim()
+    if (!nextContent) return
+    set((state) => ({
+      sessions: updateSessionIn(state.sessions, sessionId, (session) => ({
+        queuedUserMessages: (session.queuedUserMessages ?? []).map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                content: replaceQueuedMessageDisplayContent(message, nextContent),
+                displayContent: nextContent,
+              }
+            : message),
+      })),
+    }))
+  },
+
+  removeQueuedUserMessage: (sessionId, messageId) => {
+    set((state) => ({
+      sessions: updateSessionIn(state.sessions, sessionId, (session) => ({
+        queuedUserMessages: (session.queuedUserMessages ?? []).filter((message) => message.id !== messageId),
+      })),
+    }))
+  },
+
+  sendQueuedUserMessage: (sessionId, messageId) => {
+    const session = get().sessions[sessionId]
+    const queuedMessage = (session?.queuedUserMessages ?? []).find((message) => message.id === messageId)
+    if (!session || !queuedMessage) return
+
+    get().removeQueuedUserMessage(sessionId, messageId)
+
+    if (session.chatState === 'idle') {
+      get().sendMessage(
+        sessionId,
+        queuedMessage.content,
+        queuedMessage.attachments,
+        {
+          displayContent: queuedMessage.displayContent,
+          displayAttachments: queuedMessage.displayAttachments,
+        },
+      )
+      return
+    }
+
+    wsManager.send(sessionId, {
+      type: 'user_message',
+      content: queuedMessage.content,
+      attachments: queuedMessage.attachments,
+    })
+  },
+
   clearMessages: (sessionId) => {
     clearPendingTaskToolUseIds(sessionId)
     clearPendingToolParentUseIds(sessionId)
@@ -1289,6 +1389,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       streamingText: '',
       chatState: 'idle',
       apiRetry: null,
+      queuedUserMessages: [],
     })) }))
   },
 
@@ -1690,6 +1791,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           })
         }
         refreshCompletedTranscriptHistory(get, sessionId)
+        for (const queuedMessage of get().sessions[sessionId]?.queuedUserMessages ?? []) {
+          get().sendQueuedUserMessage(sessionId, queuedMessage.id)
+        }
+        break
+      }
+
+      case 'user_message_replay': {
+        update((session) => {
+          const pendingText = `${session.streamingText}${consumePendingDelta(sessionId)}`
+          const baseMessages = pendingText.trim()
+            ? appendAssistantTextMessage(session.messages, pendingText, Date.now())
+            : session.messages
+          return {
+            messages: appendReplayedUserMessage(baseMessages, msg.content, Date.now()),
+            ...(pendingText.trim() ? { streamingText: '' } : {}),
+            activeThinkingId: null,
+          }
+        })
         break
       }
 
@@ -2568,6 +2687,57 @@ function extractLeadingFileReferences(text: string): {
     attachments,
     modelContent: text,
   }
+}
+
+function appendReplayedUserMessage(
+  messages: UIMessage[],
+  content: string,
+  timestamp: number,
+): UIMessage[] {
+  const parsed = extractLeadingFileReferences(content)
+  const displayContent = parsed.content.trim() || content.trim()
+  if (!displayContent) return messages
+
+  const modelContent = parsed.modelContent ?? content.trim()
+  const last = messages[messages.length - 1]
+  if (
+    last?.type === 'user_text' &&
+    (last.modelContent ?? last.content).trim() === modelContent
+  ) {
+    return messages
+  }
+
+  return [
+    ...messages,
+    {
+      id: nextId(),
+      type: 'user_text',
+      content: displayContent,
+      ...(parsed.modelContent ? { modelContent: parsed.modelContent } : {}),
+      ...(parsed.attachments ? { attachments: parsed.attachments } : {}),
+      timestamp,
+    },
+  ]
+}
+
+function replaceQueuedMessageDisplayContent(
+  message: QueuedUserMessage,
+  nextDisplayContent: string,
+): string {
+  const currentModelContent = message.content.trim()
+  const currentDisplayContent = message.displayContent.trim()
+  if (!currentModelContent) return nextDisplayContent
+  if (!currentDisplayContent) return `${currentModelContent}\n\n${nextDisplayContent}`
+  if (currentModelContent === currentDisplayContent) return nextDisplayContent
+
+  const displaySuffix = `\n\n${currentDisplayContent}`
+  if (currentModelContent.endsWith(displaySuffix)) {
+    return `${currentModelContent.slice(0, -currentDisplayContent.length)}${nextDisplayContent}`
+  }
+  if (currentModelContent.endsWith(currentDisplayContent)) {
+    return `${currentModelContent.slice(0, -currentDisplayContent.length)}${nextDisplayContent}`
+  }
+  return `${currentModelContent}\n\n${nextDisplayContent}`
 }
 
 /**

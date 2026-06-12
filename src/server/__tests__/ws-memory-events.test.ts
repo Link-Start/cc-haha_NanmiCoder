@@ -93,6 +93,45 @@ describe('WebSocket AskUserQuestion events', () => {
   })
 })
 
+describe('WebSocket queued user replay events', () => {
+  it('forwards ordinary queued user replays to the desktop client', () => {
+    expect(translateCliMessage({
+      type: 'user',
+      isReplay: true,
+      message: {
+        role: 'user',
+        content: 'please adjust the current direction',
+      },
+    }, 'session-1')).toEqual([
+      {
+        type: 'user_message_replay',
+        content: 'please adjust the current direction',
+      },
+    ])
+  })
+
+  it('does not turn replayed tool results into user text messages', () => {
+    expect(translateCliMessage({
+      type: 'user',
+      isReplay: true,
+      message: {
+        role: 'user',
+        content: [
+          { type: 'tool_result', tool_use_id: 'tool-1', content: 'ok' },
+        ],
+      },
+    }, 'session-1')).toEqual([
+      {
+        type: 'tool_result',
+        toolUseId: 'tool-1',
+        content: 'ok',
+        isError: false,
+        parentToolUseId: undefined,
+      },
+    ])
+  })
+})
+
 describe('WebSocket compact events', () => {
   it('forwards CLI compacting status to the desktop client', () => {
     expect(translateCliMessage({
