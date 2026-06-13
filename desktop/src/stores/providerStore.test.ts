@@ -196,7 +196,7 @@ describe('providerStore reorderProviders', () => {
     const b = makeProvider({ id: 'b', name: 'B' })
     const c = makeProvider({ id: 'c', name: 'C' })
 
-    let resolveReorder: (value: { providers: SavedProvider[] }) => void = () => {}
+    let resolveReorder: (value: { providers: SavedProvider[]; providerOrder?: string[] }) => void = () => {}
     providersApiMock.reorder.mockReturnValue(
       new Promise((resolve) => {
         resolveReorder = resolve
@@ -216,6 +216,28 @@ describe('providerStore reorderProviders', () => {
 
     expect(providersApiMock.reorder).toHaveBeenCalledWith(['c', 'a', 'b'])
     expect(useProviderStore.getState().providers.map((p) => p.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('optimistically applies full display order including built-in providers', async () => {
+    const a = makeProvider({ id: 'a', name: 'A' })
+    const b = makeProvider({ id: 'b', name: 'B' })
+    providersApiMock.reorder.mockResolvedValue({
+      providers: [b, a],
+      providerOrder: ['openai-official', 'b', 'claude-official', 'a'],
+    })
+
+    const { useProviderStore } = await import('./providerStore')
+    useProviderStore.setState({
+      providers: [a, b],
+      providerOrder: ['a', 'b', 'claude-official', 'openai-official'],
+      activeId: null,
+    })
+
+    await useProviderStore.getState().reorderProviders(['openai-official', 'b', 'claude-official', 'a'])
+
+    expect(providersApiMock.reorder).toHaveBeenCalledWith(['openai-official', 'b', 'claude-official', 'a'])
+    expect(useProviderStore.getState().providerOrder).toEqual(['openai-official', 'b', 'claude-official', 'a'])
+    expect(useProviderStore.getState().providers.map((p) => p.id)).toEqual(['b', 'a'])
   })
 
   it('rolls back to the previous order when the request fails', async () => {

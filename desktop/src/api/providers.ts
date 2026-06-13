@@ -11,6 +11,8 @@ import type {
 import type { ProviderPreset } from '../types/providerPreset'
 
 type ProvidersResponse = { providers: SavedProvider[]; activeId: string | null }
+type ProvidersListResponse = ProvidersResponse & { providerOrder?: string[] }
+type ProvidersReorderResponse = { providers: SavedProvider[]; providerOrder?: string[] }
 type ProviderResponse = { provider: SavedProvider }
 type PresetsResponse = { presets: ProviderPreset[] }
 type TestResultResponse = { result: ProviderTestResult }
@@ -22,7 +24,7 @@ type AuthStatusResponse = {
 
 export const providersApi = {
   list() {
-    return api.get<ProvidersResponse>('/api/providers')
+    return api.get<ProvidersListResponse>('/api/providers')
   },
 
   presets() {
@@ -62,7 +64,7 @@ export const providersApi = {
   },
 
   reorder(orderedIds: string[]) {
-    return api.put<{ providers: SavedProvider[] }>('/api/providers/reorder', { orderedIds })
+    return api.put<ProvidersReorderResponse>('/api/providers/reorder', { orderedIds })
   },
 
   test(id: string, overrides?: { baseUrl?: string; modelId?: string; apiFormat?: string; authStrategy?: string }) {

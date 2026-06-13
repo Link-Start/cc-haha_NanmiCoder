@@ -172,8 +172,8 @@ async function handleReorder(req: Request): Promise<Response> {
   const body = await parseJsonBody(req)
   try {
     const input = ReorderProvidersSchema.parse(body)
-    const providers = await providerService.reorderProviders(input.orderedIds)
-    return Response.json({ providers })
+    const { providers, providerOrder } = await providerService.reorderProviders(input.orderedIds)
+    return Response.json({ providers, providerOrder })
   } catch (err) {
     if (err instanceof z.ZodError) throw ApiError.badRequest(err.issues.map((i) => i.message).join('; '))
     throw err

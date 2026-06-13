@@ -53,11 +53,76 @@ import type {
   ApiFormat,
   ProviderAuthStrategy,
 } from '../types/provider.js'
+import {
+  BUILT_IN_PROVIDER_IDS,
+} from '../types/provider.js'
 
 const DEFAULT_INDEX: ProvidersIndex = {
   schemaVersion: CURRENT_PROVIDER_INDEX_SCHEMA_VERSION,
   activeId: null,
   providers: [],
+  providerOrder: [...BUILT_IN_PROVIDER_IDS],
+}
+
+function isPermutation(candidateIds: string[], expectedIds: string[]): boolean {
+  const expectedSet = new Set(expectedIds)
+  const candidateSet = new Set(candidateIds)
+  return (
+    candidateIds.length === expectedIds.length &&
+    candidateSet.size === candidateIds.length &&
+    expectedIds.every((id) => candidateSet.has(id)) &&
+    candidateIds.every((id) => expectedSet.has(id))
+  )
+}
+
+function savedProviderIds(providers: SavedProvider[]): string[] {
+  return providers.map((provider) => provider.id)
+}
+
+function fullProviderOrderIds(providers: SavedProvider[]): string[] {
+  return [
+    ...savedProviderIds(providers),
+    ...BUILT_IN_PROVIDER_IDS,
+  ]
+}
+
+function sortSavedProvidersByOrder(providers: SavedProvider[], providerOrder: string[]): SavedProvider[] {
+  const byId = new Map(providers.map((provider) => [provider.id, provider]))
+  return providerOrder
+    .map((id) => byId.get(id))
+    .filter((provider): provider is SavedProvider => provider !== undefined)
+}
+
+function mergeSavedOrderIntoDisplayOrder(providerOrder: string[], savedOrder: string[]): string[] {
+  const savedSet = new Set(savedOrder)
+  const queue = [...savedOrder]
+  return providerOrder.map((id) => {
+    if (!savedSet.has(id)) return id
+    return queue.shift() ?? id
+  })
+}
+
+function appendNewProviderToOrder(providerOrder: string[], providerId: string, existingProviders: SavedProvider[]): string[] {
+  const existingProviderIds = new Set(existingProviders.map((provider) => provider.id))
+  const lastSavedIndex = providerOrder.reduce(
+    (latest, id, index) => existingProviderIds.has(id) ? index : latest,
+    -1,
+  )
+  if (lastSavedIndex !== -1) {
+    return [
+      ...providerOrder.slice(0, lastSavedIndex + 1),
+      providerId,
+      ...providerOrder.slice(lastSavedIndex + 1),
+    ]
+  }
+
+  const firstBuiltInIndex = providerOrder.findIndex((id) => BUILT_IN_PROVIDER_IDS.includes(id as typeof BUILT_IN_PROVIDER_IDS[number]))
+  if (firstBuiltInIndex === -1) return [...providerOrder, providerId]
+  return [
+    ...providerOrder.slice(0, firstBuiltInIndex),
+    providerId,
+    ...providerOrder.slice(firstBuiltInIndex),
+  ]
 }
 
 export class ProviderService {
@@ -125,9 +190,13 @@ export class ProviderService {
 
   // --- CRUD ---
 
-  async listProviders(): Promise<{ providers: SavedProvider[]; activeId: string | null }> {
+  async listProviders(): Promise<{ providers: SavedProvider[]; activeId: string | null; providerOrder: string[] }> {
     const index = await this.readIndex()
-    return { providers: index.providers, activeId: index.activeId }
+    return {
+      providers: index.providers,
+      activeId: index.activeId,
+      providerOrder: index.providerOrder,
+    }
   }
 
   async getProvider(id: string): Promise<SavedProvider> {
@@ -159,6 +228,7 @@ export class ProviderService {
       ...(input.notes !== undefined && { notes: input.notes }),
     }
 
+    index.providerOrder = appendNewProviderToOrder(index.providerOrder, provider.id, index.providers)
     index.providers.push(provider)
     await this.writeIndex(index)
     return provider
@@ -210,37 +280,39 @@ export class ProviderService {
     }
 
     index.providers.splice(idx, 1)
+    index.providerOrder = index.providerOrder.filter((providerId) => providerId !== id)
     await this.writeIndex(index)
   }
 
   /**
-   * Reorder saved providers to match the given id order.
+   * Reorder providers to match the given display id order.
    *
-   * The display order is simply the array order in providers.json, so reordering
-   * persists by rewriting the array — no separate `order` field is needed.
-   * `orderedIds` must be a permutation of the existing provider ids (same members,
-   * no duplicates, none missing); otherwise the request is rejected so a stale
-   * client can't silently drop or duplicate a provider.
+   * New clients send a full display-order permutation including the built-in
+   * official providers. Legacy clients may still send only saved provider ids;
+   * in that case the saved providers are reordered inside the current display
+   * order without moving the built-in official rows.
    */
-  async reorderProviders(orderedIds: string[]): Promise<SavedProvider[]> {
+  async reorderProviders(orderedIds: string[]): Promise<{ providers: SavedProvider[]; providerOrder: string[] }> {
     const index = await this.readIndex()
 
-    const currentIds = index.providers.map((p) => p.id)
-    const orderedSet = new Set(orderedIds)
-    const isPermutation =
-      orderedIds.length === currentIds.length &&
-      orderedSet.size === orderedIds.length &&
-      currentIds.every((id) => orderedSet.has(id))
+    const currentSavedIds = savedProviderIds(index.providers)
+    const isFullDisplayPermutation = isPermutation(orderedIds, fullProviderOrderIds(index.providers))
+    const isLegacySavedPermutation = isPermutation(orderedIds, currentSavedIds)
 
-    if (!isPermutation) {
-      throw ApiError.badRequest('orderedIds must be a permutation of existing provider ids')
+    if (!isFullDisplayPermutation && !isLegacySavedPermutation) {
+      throw ApiError.badRequest('orderedIds must be a permutation of existing provider ids and built-in provider ids')
     }
 
-    const byId = new Map(index.providers.map((p) => [p.id, p]))
-    index.providers = orderedIds.map((id) => byId.get(id) as SavedProvider)
+    index.providerOrder = isFullDisplayPermutation
+      ? orderedIds
+      : mergeSavedOrderIntoDisplayOrder(index.providerOrder, orderedIds)
+    index.providers = sortSavedProvidersByOrder(index.providers, index.providerOrder)
     await this.writeIndex(index)
 
-    return index.providers
+    return {
+      providers: index.providers,
+      providerOrder: index.providerOrder,
+    }
   }
 
   // --- Activation ---

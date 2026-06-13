@@ -7,6 +7,13 @@
 
 import { z } from 'zod'
 
+export const CLAUDE_OFFICIAL_PROVIDER_ID = 'claude-official'
+export const OPENAI_OFFICIAL_PROVIDER_ID = 'openai-official'
+export const BUILT_IN_PROVIDER_IDS = [
+  CLAUDE_OFFICIAL_PROVIDER_ID,
+  OPENAI_OFFICIAL_PROVIDER_ID,
+] as const
+
 export const ApiFormatSchema = z.enum([
   'anthropic',         // Native Anthropic Messages API (passthrough, no proxy)
   'openai_chat',       // OpenAI Chat Completions /v1/chat/completions
@@ -61,6 +68,7 @@ export const ProvidersIndexSchema = z.object({
   schemaVersion: z.number().int().positive().optional(),
   activeId: z.string().nullable(),
   providers: z.array(SavedProviderSchema),
+  providerOrder: z.array(z.string()).default([]),
 })
 
 export const CreateProviderSchema = z.object({
@@ -99,7 +107,8 @@ export const TestProviderSchema = z.object({
 })
 
 export const ReorderProvidersSchema = z.object({
-  // A permutation of the existing saved provider ids, in the desired display order.
+  // A permutation of the display provider ids, including built-in official providers.
+  // The legacy saved-provider-only permutation is still accepted by ProviderService.
   orderedIds: z.array(z.string().min(1)).min(1),
 })
 

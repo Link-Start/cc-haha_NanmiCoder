@@ -95,7 +95,11 @@ describe('ProviderService', () => {
     test('should return empty array when no providers exist', async () => {
       const svc = new ProviderService()
       const result = await svc.listProviders()
-      expect(result).toEqual({ providers: [], activeId: null })
+      expect(result).toEqual({
+        providers: [],
+        activeId: null,
+        providerOrder: ['claude-official', 'openai-official'],
+      })
     })
 
     test('should recover from a malformed providers index after an upgrade', async () => {
@@ -106,7 +110,11 @@ describe('ProviderService', () => {
       const result = await svc.listProviders()
       const files = await fs.readdir(path.join(tmpDir, 'cc-haha'))
 
-      expect(result).toEqual({ providers: [], activeId: null })
+      expect(result).toEqual({
+        providers: [],
+        activeId: null,
+        providerOrder: ['claude-official', 'openai-official'],
+      })
       expect(files.some((name) => name.startsWith('providers.json.invalid-'))).toBe(true)
     })
 
@@ -635,7 +643,7 @@ describe('ProviderService', () => {
       const c = await svc.addProvider(sampleInput({ name: 'C' }))
 
       const result = await svc.reorderProviders([c.id, a.id, b.id])
-      expect(result.map((p) => p.name)).toEqual(['C', 'A', 'B'])
+      expect(result.providers.map((p) => p.name)).toEqual(['C', 'A', 'B'])
 
       // Persisted order survives a fresh read
       const { providers } = await svc.listProviders()
@@ -643,6 +651,23 @@ describe('ProviderService', () => {
 
       const config = await readProvidersConfig()
       expect((config.providers as Array<{ name: string }>).map((p) => p.name)).toEqual(['C', 'A', 'B'])
+    })
+
+    test('should persist display order including built-in official providers', async () => {
+      const svc = new ProviderService()
+      const a = await svc.addProvider(sampleInput({ name: 'A' }))
+      const b = await svc.addProvider(sampleInput({ name: 'B' }))
+
+      const result = await svc.reorderProviders(['openai-official', b.id, 'claude-official', a.id])
+
+      expect(result.providerOrder).toEqual(['openai-official', b.id, 'claude-official', a.id])
+      expect(result.providers.map((p) => p.id)).toEqual([b.id, a.id])
+
+      const listed = await svc.listProviders()
+      expect(listed.providerOrder).toEqual(['openai-official', b.id, 'claude-official', a.id])
+
+      const config = await readProvidersConfig()
+      expect(config.providerOrder).toEqual(['openai-official', b.id, 'claude-official', a.id])
     })
 
     test('should not change activeId when reordering', async () => {
@@ -1606,8 +1631,9 @@ describe('Providers API', () => {
     const res = await handleProvidersApi(req, url, segments)
 
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { providers: { name: string }[] }
+    const body = (await res.json()) as { providers: { name: string }[]; providerOrder: string[] }
     expect(body.providers.map((p) => p.name)).toEqual(['B', 'A'])
+    expect(body.providerOrder).toEqual([b.id, a.id, 'claude-official', 'openai-official'])
   })
 
   test('PUT /api/providers/reorder should return 400 for a non-permutation', async () => {

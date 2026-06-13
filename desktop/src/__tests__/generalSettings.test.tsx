@@ -35,6 +35,7 @@ const tauriProcessMock = vi.hoisted(() => ({
 }))
 const providerStoreState = {
   providers: [] as SavedProvider[],
+  providerOrder: [] as string[],
   activeId: null as string | null,
   hasLoadedProviders: true,
   presets: [] as ProviderPreset[],
@@ -189,6 +190,7 @@ describe('Settings > General tab', () => {
     MOCK_GET_SETTINGS.mockResolvedValue({})
     MOCK_UPDATE_SETTINGS.mockResolvedValue({})
     providerStoreState.providers = []
+    providerStoreState.providerOrder = []
     providerStoreState.activeId = null
     providerStoreState.hasLoadedProviders = true
     providerStoreState.presets = []
@@ -1482,6 +1484,7 @@ describe('Settings > Providers tab', () => {
         notes: '',
       },
     ]
+    providerStoreState.providerOrder = ['provider-1', 'claude-official', 'openai-official']
     providerStoreState.activeId = null
     providerStoreState.hasLoadedProviders = true
   })
@@ -1528,6 +1531,20 @@ describe('Settings > Providers tab', () => {
     expect(within(openAIProvider).getByText('Default')).toBeInTheDocument()
     expect(screen.getByTestId('chatgpt-official-login')).toBeInTheDocument()
     expect(screen.queryByTestId('claude-official-login')).not.toBeInTheDocument()
+  })
+
+  it('renders saved and official providers in the stored sortable order', () => {
+    providerStoreState.providerOrder = ['provider-1', 'openai-official', 'claude-official']
+
+    render(<Settings />)
+
+    const rows = screen.getAllByRole('button', { name: 'Drag to reorder' })
+      .map((handle) => handle.closest('[data-testid]')?.getAttribute('data-testid'))
+    expect(rows).toEqual([
+      'provider-provider-1',
+      'openai-official-provider',
+      'claude-official-provider',
+    ])
   })
 
   it('requires confirmation before deleting a provider', async () => {
