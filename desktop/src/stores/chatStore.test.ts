@@ -463,6 +463,50 @@ describe('chatStore history mapping', () => {
     ])
   })
 
+  it('does not restore internal slash-command breadcrumbs as user history bubbles', () => {
+    const messages: MessageEntry[] = [
+      {
+        id: 'agent-command-string',
+        type: 'user',
+        timestamp: '2026-06-15T03:32:13.000Z',
+        content: [
+          '<command-message>agent</command-message>',
+          '<command-name>/agent</command-name>',
+          '<command-args>Plan 222</command-args>',
+        ].join('\n'),
+      },
+      {
+        id: 'agent-command-array',
+        type: 'user',
+        timestamp: '2026-06-15T03:32:14.000Z',
+        content: [
+          {
+            type: 'text',
+            text: [
+              '<command-message>agent</command-message>',
+              '<command-name>/agent</command-name>',
+              '<command-args>Plan 333</command-args>',
+            ].join('\n'),
+          },
+        ],
+      },
+      {
+        id: 'transcript-user-1',
+        type: 'user',
+        timestamp: '2026-06-15T03:32:15.000Z',
+        content: '继续处理这个问题',
+      },
+    ]
+
+    expect(mapHistoryMessagesToUiMessages(messages)).toMatchObject([
+      {
+        id: 'transcript-user-1',
+        type: 'user_text',
+        content: '继续处理这个问题',
+      },
+    ])
+  })
+
   it('restores persisted image user messages as renderable attachments without exposing image metadata text', () => {
     const messages: MessageEntry[] = [
       {

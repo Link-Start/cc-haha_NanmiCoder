@@ -150,6 +150,13 @@ describe('SearchService.searchSessions', () => {
   it('skips internal command breadcrumb entries', async () => {
     await writeSessionFile('proj-a', 'session-6', [
       { type: 'user', message: { role: 'user', content: '<command-name>deploy</command-name> magicword' } },
+      {
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [{ type: 'text', text: '<command-message>agent</command-message> magicword' }],
+        },
+      },
     ])
 
     const { results } = await service.searchSessions('magicword')

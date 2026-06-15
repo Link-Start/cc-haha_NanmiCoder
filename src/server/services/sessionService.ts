@@ -730,13 +730,15 @@ export class SessionService {
   }
 
   private isInternalCommandBreadcrumb(content: unknown): boolean {
-    if (typeof content !== 'string') return false
-
+    const textBlocks = this.extractTextBlocks(content)
     return (
-      content.includes('<command-name>') ||
-      content.includes('<command-message>') ||
-      content.includes('<command-args>') ||
-      content.includes('<local-command-caveat>')
+      textBlocks.length > 0 &&
+      textBlocks.every((text) =>
+        text.includes('<command-name>') ||
+        text.includes('<command-message>') ||
+        text.includes('<command-args>') ||
+        text.includes('<local-command-caveat>')
+      )
     )
   }
 

@@ -2316,6 +2316,16 @@ function extractHistoryTextBlocks(content: unknown): string[] {
     .filter(Boolean)
 }
 
+function isInternalCommandBreadcrumbContent(content: unknown): boolean {
+  const textBlocks = extractHistoryTextBlocks(content)
+  return textBlocks.length > 0 && textBlocks.every((text) => (
+    text.includes('<command-name>') ||
+    text.includes('<command-message>') ||
+    text.includes('<command-args>') ||
+    text.includes('<local-command-caveat>')
+  ))
+}
+
 function isTaskNotificationContent(content: unknown): boolean {
   const textBlocks = extractHistoryTextBlocks(content)
   return textBlocks.length > 0 && textBlocks.every((text) => extractTaskNotificationXml(text) !== null)
@@ -3001,6 +3011,9 @@ export function mapHistoryMessagesToUiMessages(
   for (const msg of messages) {
     if (msg.type === 'user' && isTaskNotificationContent(msg.content)) {
       suppressTaskNotificationResponse = true
+      continue
+    }
+    if (msg.type === 'user' && isInternalCommandBreadcrumbContent(msg.content)) {
       continue
     }
     if (msg.type === 'user') {
