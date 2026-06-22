@@ -495,6 +495,31 @@ function appendAssistantTextMessage(
   ]
 }
 
+function formatTurnDuration(seconds: number): string {
+  const totalSeconds = Math.max(1, Math.round(seconds))
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const remainingSeconds = totalSeconds % 60
+  return `${minutes}m ${remainingSeconds}s`
+}
+
+function appendCompletedTurnDurationMessage(
+  messages: UIMessage[],
+  elapsedSeconds: number,
+  timestamp: number,
+): UIMessage[] {
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return messages
+  return [
+    ...messages,
+    {
+      id: nextId(),
+      type: 'system',
+      content: `Completed in ${formatTurnDuration(elapsedSeconds)}`,
+      timestamp,
+    },
+  ]
+}
+
 function extractCompactSummaryContent(content: unknown): string | null {
   if (typeof content !== 'string') return null
   const trimmed = content.trim()
@@ -1509,6 +1534,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const update = (updater: (session: PerSessionState) => Partial<PerSessionState>) => {
       set((s) => ({ sessions: updateSessionIn(s.sessions, sessionId, updater) }))
     }
+    const ensureElapsedTimer = () => {
+      const session = get().sessions[sessionId]
+      if (!session || session.elapsedTimer) return
+      const timer = setInterval(() => {
+        set((st) => ({
+          sessions: updateSessionIn(st.sessions, sessionId, (sess) => ({
+            elapsedSeconds: sess.elapsedSeconds + 1,
+          })),
+        }))
+      }, 1000)
+      update(() => ({ elapsedTimer: timer }))
+    }
+    const clearElapsedTimer = () => {
+      const session = get().sessions[sessionId]
+      if (!session?.elapsedTimer) return
+      clearInterval(session.elapsedTimer)
+      update(() => ({ elapsedTimer: null }))
+    }
 
     switch (msg.type) {
       case 'connected':
@@ -1556,25 +1599,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             } : pendingText !== session.streamingText ? { streamingText: pendingText } : {}),
           }
         })
-        if (msg.state !== 'idle') {
-          const session = get().sessions[sessionId]
-          if (session && !session.elapsedTimer) {
-            const timer = setInterval(() => {
-              set((st) => ({
-                sessions: updateSessionIn(st.sessions, sessionId, (sess) => ({
-                  elapsedSeconds: sess.elapsedSeconds + 1,
-                })),
-              }))
-            }, 1000)
-            update(() => ({ elapsedTimer: timer }))
-          }
-        }
+        if (msg.state !== 'idle') ensureElapsedTimer()
         if (msg.state === 'idle') {
-          const session = get().sessions[sessionId]
-          if (session?.elapsedTimer) {
-            clearInterval(session.elapsedTimer)
-            update(() => ({ elapsedTimer: null }))
-          }
+          clearElapsedTimer()
         }
         // Sync tab status
         useTabStore.getState().updateTabStatus(sessionId, msg.state === 'idle' ? 'idle' : 'running')
@@ -1640,6 +1667,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             streamingFallback: null,
           }))
         }
+        ensureElapsedTimer()
         break
       }
 
@@ -1661,6 +1689,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           activeThinkingId: null,
           statusVerb: '',
         }))
+        ensureElapsedTimer()
         useTabStore.getState().updateTabStatus(sessionId, 'running')
         break
       }
@@ -1678,13 +1707,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           activeThinkingId: null,
           statusVerb: '',
         }))
+        ensureElapsedTimer()
         useTabStore.getState().updateTabStatus(sessionId, 'running')
         break
       }
 
       case 'content_delta':
+        let receivedLiveDelta = false
         if (msg.text !== undefined) {
           if (!get().sessions[sessionId]) break
+          receivedLiveDelta = true
           appendPendingDelta(sessionId, msg.text)
           if (!flushTimerBySession.has(sessionId)) {
             const timer = setTimeout(() => {
@@ -1700,6 +1732,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }
         }
         if (msg.toolInput !== undefined) {
+          receivedLiveDelta = true
           appendPendingToolInputDelta(sessionId, msg.toolInput)
           if (!toolInputFlushTimerBySession.has(sessionId)) {
             const timer = setTimeout(() => {
@@ -1735,6 +1768,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             toolInputFlushTimerBySession.set(sessionId, timer)
           }
         }
+        if (receivedLiveDelta && get().sessions[sessionId]?.chatState !== 'idle') ensureElapsedTimer()
         break
 
       case 'thinking':
@@ -1764,6 +1798,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             streamingResponseChars: s.streamingResponseChars + msg.text.length,
           }
         })
+        ensureElapsedTimer()
         break
 
       case 'tool_use_complete': {
@@ -1900,11 +1935,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       case 'message_complete': {
         const session = get().sessions[sessionId]
         if (!session) break
+        const completedAt = Date.now()
         const wasAgentRunning = session.chatState !== 'idle'
+        const hasQueuedUserMessages = (session.queuedUserMessages?.length ?? 0) > 0
         const text = `${session.streamingText}${consumePendingDelta(sessionId)}`
         let completionMessages = session.messages
         if (text.trim()) {
-          completionMessages = appendAssistantTextMessage(session.messages, text, Date.now())
+          completionMessages = appendAssistantTextMessage(session.messages, text, completedAt)
           update(() => ({
             messages: completionMessages,
             streamingText: '',
@@ -1913,7 +1950,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           update(() => ({ streamingText: text }))
         }
         const appendedCompletionMessage = completionMessages !== session.messages
-        const finalMessages = markPendingToolUseMessagesStopped(completionMessages)
+        const stoppedMessages = markPendingToolUseMessagesStopped(completionMessages)
+        const finalMessages = wasAgentRunning && !hasQueuedUserMessages
+          ? appendCompletedTurnDurationMessage(stoppedMessages, session.elapsedSeconds, completedAt)
+          : stoppedMessages
         if (session.elapsedTimer) clearInterval(session.elapsedTimer)
         update(() => ({
           messages: finalMessages,

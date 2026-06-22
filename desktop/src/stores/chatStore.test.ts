@@ -3137,6 +3137,66 @@ describe('chatStore history mapping', () => {
     vi.useRealTimers()
   })
 
+  it('resumes the elapsed timer when streaming continues after the timer was lost', () => {
+    vi.useFakeTimers()
+
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: makeSession({
+          chatState: 'streaming',
+          elapsedSeconds: 3,
+          elapsedTimer: null,
+        }),
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'content_delta',
+      text: 'still running',
+    })
+
+    vi.advanceTimersByTime(2100)
+
+    expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.elapsedSeconds).toBe(5)
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'status',
+      state: 'idle',
+    })
+
+    vi.runOnlyPendingTimers()
+    vi.useRealTimers()
+  })
+
+  it('adds a completed turn duration after a running response finishes', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: makeSession({
+          chatState: 'streaming',
+          elapsedSeconds: 65,
+          streamingText: 'Finished answer',
+          elapsedTimer: null,
+        }),
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'message_complete',
+      usage: { input_tokens: 12, output_tokens: 34 },
+    })
+
+    expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.messages).toMatchObject([
+      {
+        type: 'assistant_text',
+        content: 'Finished answer',
+      },
+      {
+        type: 'system',
+        content: 'Completed in 1m 5s',
+      },
+    ])
+  })
+
   it('tracks API retry status until the request finishes', () => {
     useChatStore.setState({
       sessions: {
