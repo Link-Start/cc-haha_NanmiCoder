@@ -66,7 +66,7 @@ export function createSkillMarketService(options: SkillMarketServiceOptions = {}
     }
 
     if (source === 'skillhub') {
-      return withInstalled(await listSkillHub(params, 'ok'))
+      return withInstalled(await listSkillHub(params))
     }
 
     if (source !== 'auto') {
