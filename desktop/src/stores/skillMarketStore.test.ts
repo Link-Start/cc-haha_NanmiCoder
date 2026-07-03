@@ -1,0 +1,168 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { skillMarketApi } from '../api/skillMarket'
+import type { SkillMarketDetail, SkillMarketItem } from '../types/skillMarket'
+import { useSkillMarketStore } from './skillMarketStore'
+
+vi.mock('../api/skillMarket', () => ({
+  skillMarketApi: {
+    list: vi.fn(),
+    detail: vi.fn(),
+    install: vi.fn(),
+  },
+}))
+
+const mockedSkillMarketApi = vi.mocked(skillMarketApi)
+
+function makeItem(overrides: Partial<SkillMarketItem> = {}): SkillMarketItem {
+  return {
+    source: 'clawhub',
+    sourceMode: 'primary',
+    slug: 'skill-vetter',
+    displayName: 'Skill Vetter',
+    summary: 'Security-first skill vetting.',
+    canonicalUrl: 'https://clawhub.ai/skill-vetter',
+    trustState: 'clean',
+    installed: false,
+    ...overrides,
+  }
+}
+
+function makeDetail(overrides: Partial<SkillMarketDetail> = {}): SkillMarketDetail {
+  return {
+    ...makeItem(),
+    files: [],
+    riskLabels: [],
+    installEligibility: { status: 'installable' },
+    ...overrides,
+  }
+}
+
+describe('skillMarketStore', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useSkillMarketStore.setState({
+      items: [],
+      selectedDetail: null,
+      source: 'auto',
+      sort: 'downloads',
+      query: '',
+      isLoading: false,
+      isDetailLoading: false,
+      isInstalling: false,
+      error: null,
+    })
+  })
+
+  it('loads marketplace items with trimmed query parameters', async () => {
+    const item = makeItem()
+    mockedSkillMarketApi.list.mockResolvedValue({
+      items: [item],
+      nextCursor: null,
+      source: 'clawhub',
+      sourceStatus: 'ok',
+    })
+    useSkillMarketStore.setState({
+      source: 'skillhub',
+      sort: 'trending',
+      query: '  vetter  ',
+    })
+
+    await useSkillMarketStore.getState().fetchItems()
+
+    expect(mockedSkillMarketApi.list).toHaveBeenCalledWith({
+      source: 'skillhub',
+      sort: 'trending',
+      q: 'vetter',
+    })
+    expect(useSkillMarketStore.getState().items).toEqual([item])
+    expect(useSkillMarketStore.getState().isLoading).toBe(false)
+    expect(useSkillMarketStore.getState().error).toBeNull()
+  })
+
+  it('sets an error when loading marketplace items fails', async () => {
+    mockedSkillMarketApi.list.mockRejectedValue(new Error('market unavailable'))
+
+    await useSkillMarketStore.getState().fetchItems()
+
+    expect(useSkillMarketStore.getState().items).toEqual([])
+    expect(useSkillMarketStore.getState().isLoading).toBe(false)
+    expect(useSkillMarketStore.getState().error).toBe('market unavailable')
+  })
+
+  it('updates source, sort, and query filters', () => {
+    useSkillMarketStore.getState().setSource('clawhub')
+    useSkillMarketStore.getState().setSort('updated')
+    useSkillMarketStore.getState().setQuery('security')
+
+    expect(useSkillMarketStore.getState().source).toBe('clawhub')
+    expect(useSkillMarketStore.getState().sort).toBe('updated')
+    expect(useSkillMarketStore.getState().query).toBe('security')
+  })
+
+  it('loads selected marketplace detail', async () => {
+    const detail = makeDetail()
+    mockedSkillMarketApi.detail.mockResolvedValue({ detail })
+
+    await useSkillMarketStore.getState().fetchDetail('clawhub', 'skill-vetter')
+
+    expect(mockedSkillMarketApi.detail).toHaveBeenCalledWith('clawhub', 'skill-vetter')
+    expect(useSkillMarketStore.getState().selectedDetail).toEqual(detail)
+    expect(useSkillMarketStore.getState().isDetailLoading).toBe(false)
+    expect(useSkillMarketStore.getState().error).toBeNull()
+  })
+
+  it('installs selected detail and refreshes the list and detail', async () => {
+    const selected = makeDetail({ version: '1.0.0' })
+    const refreshed = makeDetail({
+      installed: true,
+      installEligibility: { status: 'installed', installedSkillName: 'skill-vetter' },
+    })
+    mockedSkillMarketApi.install.mockResolvedValue({
+      installed: true,
+      skillName: 'skill-vetter',
+      targetPath: '/Users/nanmi/.claude/skills/skill-vetter',
+    })
+    mockedSkillMarketApi.list.mockResolvedValue({
+      items: [makeItem({ installed: true })],
+      nextCursor: null,
+      source: 'clawhub',
+      sourceStatus: 'ok',
+    })
+    mockedSkillMarketApi.detail.mockResolvedValue({ detail: refreshed })
+    useSkillMarketStore.setState({ selectedDetail: selected })
+
+    await useSkillMarketStore.getState().installSelected()
+
+    expect(mockedSkillMarketApi.install).toHaveBeenCalledWith('clawhub', 'skill-vetter', '1.0.0')
+    expect(mockedSkillMarketApi.list).toHaveBeenCalledWith({
+      source: 'auto',
+      sort: 'downloads',
+      q: undefined,
+    })
+    expect(mockedSkillMarketApi.detail).toHaveBeenCalledWith('clawhub', 'skill-vetter')
+    expect(useSkillMarketStore.getState().selectedDetail).toEqual(refreshed)
+    expect(useSkillMarketStore.getState().isInstalling).toBe(false)
+  })
+
+  it('does not call install APIs when no detail is selected', async () => {
+    await useSkillMarketStore.getState().installSelected()
+
+    expect(mockedSkillMarketApi.install).not.toHaveBeenCalled()
+    expect(mockedSkillMarketApi.list).not.toHaveBeenCalled()
+    expect(mockedSkillMarketApi.detail).not.toHaveBeenCalled()
+    expect(useSkillMarketStore.getState().isInstalling).toBe(false)
+  })
+
+  it('sets an error when installing selected detail fails', async () => {
+    useSkillMarketStore.setState({ selectedDetail: makeDetail() })
+    mockedSkillMarketApi.install.mockRejectedValue(new Error('install failed'))
+
+    await useSkillMarketStore.getState().installSelected()
+
+    expect(mockedSkillMarketApi.install).toHaveBeenCalledWith('clawhub', 'skill-vetter', undefined)
+    expect(mockedSkillMarketApi.list).not.toHaveBeenCalled()
+    expect(mockedSkillMarketApi.detail).not.toHaveBeenCalled()
+    expect(useSkillMarketStore.getState().isInstalling).toBe(false)
+    expect(useSkillMarketStore.getState().error).toBe('install failed')
+  })
+})
