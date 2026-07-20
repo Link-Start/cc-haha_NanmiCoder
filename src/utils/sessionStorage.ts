@@ -4387,9 +4387,22 @@ export function isLoggableMessage(m: Message): boolean {
   if (m.type === 'progress') return false
   // IMPORTANT: We deliberately filter out most attachments for non-ants because
   // they have sensitive info for training that we don't want exposed to the public.
+  // Desktop sessions are the narrow exception: explicit file context must be
+  // present in the local transcript or --resume can only restore the @path and
+  // silently loses the content that the model saw before an app restart.
   // When enabled, we allow hook_additional_context through since it contains
   // user-configured hook output that is useful for session context on resume.
   if (m.type === 'attachment' && getUserType() !== 'ant') {
+    if (
+      getEntrypoint() === 'claude-desktop' &&
+      (
+        m.attachment.type === 'file' ||
+        m.attachment.type === 'directory' ||
+        m.attachment.type === 'pdf_reference'
+      )
+    ) {
+      return true
+    }
     if (
       m.attachment.type === 'hook_additional_context' &&
       isEnvTruthy(process.env.CLAUDE_CODE_SAVE_HOOK_ADDITIONAL_CONTEXT)
