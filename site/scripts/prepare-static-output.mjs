@@ -21,6 +21,7 @@ async function copyDirectory(source, destination) {
 
 const markdownImagePattern = /!\[[^\]]*]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g
 const htmlImagePattern = /<img\b[^>]*?\bsrc=["']([^"']+)["'][^>]*>/gi
+const siteImagePattern = /["'(]\s*(\/[A-Za-z0-9_./-]+\.(?:avif|gif|jpe?g|png|svg|webp))/gi
 
 function imageTargets(markdown) {
   const prose = markdown.replace(/```[\s\S]*?```/g, '')
@@ -28,6 +29,22 @@ function imageTargets(markdown) {
     ...prose.matchAll(markdownImagePattern),
     ...prose.matchAll(htmlImagePattern),
   ].map((match) => match[1])
+}
+
+function isOutsideDocsPublic(relative) {
+  return relative.startsWith('..')
+    || path.isAbsolute(relative)
+    || relative === 'public'
+    || relative.startsWith(`public${path.sep}`)
+}
+
+async function copySources(sources) {
+  for (const source of sources) {
+    if (!await pathExists(source)) continue
+    const destination = path.join(distDir, path.relative(paths.docsDir, source))
+    await fs.mkdir(path.dirname(destination), { recursive: true })
+    await fs.copyFile(source, destination)
+  }
 }
 
 async function copyReferencedDocImages(records) {
@@ -45,27 +62,52 @@ async function copyReferencedDocImages(records) {
         : path.resolve(sourceDirectory, pathname)
       const relative = path.relative(paths.docsDir, source)
 
-      if (
-        relative.startsWith('..')
-        || path.isAbsolute(relative)
-        || relative === 'public'
-        || relative.startsWith(`public${path.sep}`)
-      ) {
-        continue
-      }
+      if (isOutsideDocsPublic(relative)) continue
 
       sources.add(source)
     }
   }
 
-  for (const source of sources) {
-    if (!await pathExists(source)) continue
-    const destination = path.join(distDir, path.relative(paths.docsDir, source))
-    await fs.mkdir(path.dirname(destination), { recursive: true })
-    await fs.copyFile(source, destination)
+  await copySources(sources)
+  console.log(`Copied ${sources.size} referenced documentation images.`)
+}
+
+async function siteSourceFiles() {
+  const files = [path.join(paths.siteDir, 'index.html')]
+  const srcDir = path.join(paths.siteDir, 'src')
+  const entries = await fs.readdir(srcDir, { recursive: true, withFileTypes: true })
+  for (const entry of entries) {
+    if (entry.isFile() && /\.(?:jsx?|css)$/.test(entry.name)) {
+      files.push(path.join(entry.parentPath || entry.path, entry.name))
+    }
+  }
+  return files
+}
+
+async function copySiteReferencedImages() {
+  const sources = new Set()
+  const missing = []
+
+  for (const file of await siteSourceFiles()) {
+    const content = await fs.readFile(file, 'utf8')
+    for (const match of content.matchAll(siteImagePattern)) {
+      const pathname = match[1]
+      const source = path.join(paths.docsDir, pathname.replace(/^\/+/, ''))
+      const relative = path.relative(paths.docsDir, source)
+
+      if (isOutsideDocsPublic(relative)) continue
+
+      if (await pathExists(source)) sources.add(source)
+      else missing.push(`${path.relative(paths.siteDir, file)}: ${pathname}`)
+    }
   }
 
-  console.log(`Copied ${sources.size} referenced documentation images.`)
+  if (missing.length > 0) {
+    throw new Error(`Site-referenced images missing under docs/:\n- ${missing.join('\n- ')}`)
+  }
+
+  await copySources(sources)
+  console.log(`Copied ${sources.size} site-referenced images.`)
 }
 
 async function createRouteEntry(route, shell) {
@@ -86,6 +128,7 @@ async function main() {
 
   await copyDirectory(path.join(paths.docsDir, 'public'), distDir)
   await copyReferencedDocImages(records)
+  await copySiteReferencedImages()
 
   const customDomain = (await fs.readFile(path.join(distDir, 'CNAME'), 'utf8')).trim()
   if (customDomain !== expectedCustomDomain) {
