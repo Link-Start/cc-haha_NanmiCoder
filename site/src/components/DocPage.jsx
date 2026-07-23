@@ -75,13 +75,13 @@ export function DocPage({
         startOnLoad: false,
         theme: 'base',
         themeVariables: {
-          fontFamily: 'DM Sans, Noto Sans SC, sans-serif',
-          lineColor: '#171915',
-          primaryColor: '#eef2ff',
-          primaryBorderColor: '#171915',
-          primaryTextColor: '#171915',
-          secondaryColor: '#fff8d7',
-          tertiaryColor: '#fffdf7',
+          fontFamily: 'Inter, PingFang SC, sans-serif',
+          lineColor: '#1a1610',
+          primaryColor: '#f3efe4',
+          primaryBorderColor: '#1a1610',
+          primaryTextColor: '#1a1610',
+          secondaryColor: '#f6e6de',
+          tertiaryColor: '#faf7ee',
         },
       })
 
@@ -152,7 +152,7 @@ export function DocPage({
           <small>Docs</small>
         </a>
         <div className="doc-site-header__marker" aria-hidden="true">
-          BUILD WITH A CREW
+          Field manual · 2026
         </div>
         <nav className="doc-site-header__actions" aria-label="Documentation links">
           <a href="https://github.com/NanmiCoder/cc-haha" target="_blank" rel="noreferrer">

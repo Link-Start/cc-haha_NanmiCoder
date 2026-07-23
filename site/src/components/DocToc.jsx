@@ -1,6 +1,26 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
 export function DocToc({ headings, locale, onAnchorNavigate }) {
+  const [activeId, setActiveId] = useState(null)
+
+  useEffect(() => {
+    if (!headings.length) return undefined
+
+    const sections = headings
+      .map((heading) => document.getElementById(heading.id))
+      .filter(Boolean)
+    if (!sections.length) return undefined
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActiveId(entry.target.id)
+      })
+    }, { rootMargin: '-72px 0px -68% 0px', threshold: 0 })
+
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [headings])
+
   if (!headings.length) return null
 
   return (
@@ -10,6 +30,7 @@ export function DocToc({ headings, locale, onAnchorNavigate }) {
         {headings.map((heading) => (
           <li className={`doc-toc__depth-${heading.depth}`} key={heading.id}>
             <a
+              className={heading.id === activeId ? 'is-active' : undefined}
               href={`#${heading.id}`}
               onClick={(event) => onAnchorNavigate?.(event, heading.id)}
             >

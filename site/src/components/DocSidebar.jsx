@@ -18,7 +18,10 @@ export function DocSidebar({ activeRoute, navigation, onNavigate }) {
             key={group.label}
             open={index < 2 || group.items.some((item) => item.route === activeRoute)}
           >
-            <summary>{group.label}</summary>
+            <summary>
+              <span className="doc-sidebar__index">{String(index + 1).padStart(2, '0')}</span>
+              {group.label}
+            </summary>
             <ul>
               {group.items.map((item) => (
                 <li key={item.route}>
@@ -27,7 +30,6 @@ export function DocSidebar({ activeRoute, navigation, onNavigate }) {
                     href={toSiteHref(item.route)}
                     onClick={(event) => handleClick(event, item.route)}
                   >
-                    <span aria-hidden="true">↳</span>
                     {item.label}
                   </a>
                 </li>

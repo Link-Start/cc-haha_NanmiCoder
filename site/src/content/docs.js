@@ -328,6 +328,7 @@ function normalizeRequestedRoute(pathname) {
 }
 
 export function findDoc(pathname) {
+  if (!pathname) return null
   const route = normalizeRequestedRoute(pathname)
   return docsByRoute.get(route.toLowerCase()) || null
 }
@@ -340,7 +341,7 @@ export function getAdjacentDocs(doc, navigation) {
   const routes = navigation.flatMap((group) => group.items.map((item) => item.route))
   const index = routes.indexOf(doc.route)
   return {
-    next: index >= 0 ? findDoc(routes[index + 1]) : null,
+    next: index >= 0 && index + 1 < routes.length ? findDoc(routes[index + 1]) : null,
     previous: index > 0 ? findDoc(routes[index - 1]) : null,
   }
 }

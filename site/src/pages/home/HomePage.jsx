@@ -21,59 +21,61 @@ const content = {
     nav: ['产品旅程', '真实界面', '认识搭档', '文档'],
     download: '下载桌面端',
     eyebrow: 'CLAUDE CODE · 现在有了一间工作室',
-    titleA: '把终端智能，',
-    titleB: '带进一间会协作的工作室。',
-    intro: 'Claude Code Haha 把主会话、代码改动、Agent、桌面宠物、远程入口与自动任务收进同一个本地优先的桌面应用。',
+    titleA: 'Agent 干活的全过程，',
+    titleB: '你看得见、审得完、管得住。',
+    intro: 'Claude Code 的本地优先桌面工作室：跑会话、派 Agent、审改动，离开电脑用手机继续同一条会话。',
     primary: '下载 macOS / Windows / Linux',
-    secondary: '从快速上手开始',
+    secondary: '先跑通第一条会话',
     local: '本地优先',
-    providers: '多模型',
-    remote: '跨设备',
-    heroNote: '主会话在这里。右侧工作台只是需要时展开的工具。',
-    orbit: ['会话', '代码', 'Agent', '设备'],
+    providers: '模型自选',
+    remote: '离开也能续',
+    fig: 'FIG. 01 — MAIN SESSION · 实拍直出',
+    figStatus: '127.0.0.1 · 已连接',
+    heroNote: '真实截图，没修过——连光标都是原装的。',
+    rail: '桌面工作室 · A STUDIO FOR CLAUDE CODE · 本地优先 ·',
     journeyEyebrow: 'ONE SESSION, MANY HANDS',
-    journeyTitle: '从一句话开始，工作自然展开。',
-    journeyIntro: '不是把十几个工具摆成菜单，而是让它们围绕同一条会话轨迹工作。',
+    journeyTitle: '一句话开工，五步见结果。',
+    journeyIntro: '所有功能挂在同一条会话上：你说目标，它们各司其职，进度随时可查。',
     steps: [
-      ['01', '说清目标', '在 Main Session 里描述任务，选择项目、模型与权限模式。'],
-      ['02', '组织协作', '用 Task、SubAgent 与 Agent Team 拆开复杂工作，活动面板持续汇总进度。'],
-      ['03', '看见改变', '代码、Diff、Worktree 和预览都留在同一上下文里，审完再决定是否落地。'],
-      ['04', '把手伸出去', 'Computer Use 操作真实桌面；H5 与 IM 让你离开电脑也能继续。'],
-      ['05', '让它按时回来', '把稳定流程交给定时任务，运行记录仍可回到对应会话复盘。'],
+      ['01', '说出任务', '在 Main Session 里输入目标，选好项目、模型和权限模式，回车开工。'],
+      ['02', '拆开派活', '大活交给 Task、SubAgent 或 Agent Team 并行干，后台 Agent 的工具活动也汇总进活动面板。'],
+      ['03', '审完再落地', '改动按文件逐个看 Diff，试验放进 Worktree 不碰主分支，你点头才落地。'],
+      ['04', '把手伸出电脑', 'Computer Use 让 Agent 操作真实桌面；出门用手机 H5 或 IM 继续会话，断连不中断。'],
+      ['05', '到点自动跑', '把重复流程设成定时任务，到点在独立会话执行，每跑一次都留记录可复盘。'],
     ],
     tourEyebrow: 'REAL PRODUCT, NOT A MOCKUP',
-    tourTitle: '每一个入口，都有真实界面作证。',
-    tourIntro: '切换下面的工作片段。截图来自真实 Claude Code Haha 桌面应用，不用概念图替代产品。',
+    tourTitle: '所有截图，都拍自真实产品。',
+    tourIntro: '不用概念图充数：全部截取自运行中的桌面端，你看到的功能，装好就是那个样子。',
     tours: [
-      { id: 'session', label: 'Main Session', kicker: '工作发生的地方', title: '主会话是中心，不是右侧工作台。', body: '项目、对话、输入、模型与上下文在中间完成闭环；代码工作台只在你需要审查改动时出现。', image: mainSession },
-      { id: 'pets', label: '桌面宠物', kicker: '协作也可以有性格', title: '搭搭、弧弧、补补、回回，会跟着任务状态行动。', body: '选择内置伙伴，或用一张角色图生成自己的宠物。它们不只是装饰，也把 Agent 的状态变得一眼可见。', image: petSettings },
-      { id: 'computer', label: 'Computer Use', kicker: '从代码走向真实桌面', title: '让 Agent 看见屏幕、点击、输入与验证。', body: '在设置中完成安装、权限和预授权；敏感动作仍由你决定边界。', image: computerUse },
-      { id: 'schedule', label: '定时任务', kicker: '让流程按时回来', title: '本地调度，运行记录可追溯。', body: '设置频率、模型、目录与通知；桌面应用保持运行时，任务会在独立会话里执行。', image: scheduledTask },
-      { id: 'skills', label: 'Skills & Agents', kicker: '能力可以继续生长', title: '从技能市场发现工作流，也能管理自己的 Agent。', body: '查看来源、安全提示和安装状态；再为 Agent 单独配置模型、工具与系统提示词。', image: skillMarketplace },
-      { id: 'diff', label: '代码审阅', kicker: '改变先被看见', title: 'Changed Files、Diff 与 Worktree 都有明确位置。', body: '逐文件理解改动，保留分支隔离，再由你决定下一步。', image: diffReview },
-      { id: 'preview', label: '浏览器预览', kicker: '验证不必离开会话', title: '在工作台里打开安全的网页预览。', body: '预览本地或公开页面，把看见的结果继续带回当前任务；远程 H5 与 IM 则负责离开电脑后的连接。', image: browserPreview },
+      { id: 'session', label: 'Main Session', kicker: '从对话到代码', title: '描述目标，看它一步步做完。', body: '选好项目、模型和权限后开聊；它产生的每处代码改动都留在上下文里，等你审完再落地。', image: mainSession },
+      { id: 'pets', label: '桌面宠物', kicker: '状态一眼可见', title: '宠物在动，Agent 就在干活。', body: '搭搭、弧弧、补补、回回随任务状态变换动作；上传一张角色图，就能养一只自己的。', image: petSettings },
+      { id: 'computer', label: 'Computer Use', kicker: '看得见，也动得了', title: '能看屏幕，能点能输能验证。', body: '原生无障碍引擎驱动：Agent 能看屏幕、点鼠标、敲键盘，做完还会自己核对；授权分级，敏感操作等你点头。', image: computerUse },
+      { id: 'schedule', label: '定时任务', kicker: '到点自动开工', title: '设好时间，它按时回来交活。', body: '定好频率、模型、目录和通知方式；任务在独立会话执行，每跑一次都有记录可查。', image: scheduledTask },
+      { id: 'skills', label: 'Skills & Agents', kicker: '给 Agent 添本事', title: '缺什么手艺，装什么手艺。', body: '看中就装，来源和安全提示摆在明处；再给自己的 Agent 单独配模型、工具和系统提示词。', image: skillMarketplace },
+      { id: 'diff', label: '代码审阅', kicker: '先看清楚再决定', title: '改了什么，逐个文件看清楚。', body: '改动按文件列出，Diff 逐行对照；Worktree 把试验隔在主分支外，合不合你说了算。', image: diffReview },
+      { id: 'preview', label: '浏览器预览', kicker: '做完当场验证', title: '页面效果，会话里直接验证。', body: '在应用里打开本地或公开网页，看到问题直接带回会话继续改；出门就换 H5 或 IM 接力。', image: browserPreview },
     ],
     petEyebrow: 'MEET THE CREW',
-    petTitle: '四位搭档，四种工作节奏。',
-    petIntro: '我们不想再用一枚冷冰冰的图标代表所有状态。于是，Claude Code Haha 有了自己的小队。',
+    petTitle: '认识搭搭、弧弧、补补、回回。',
+    petIntro: '一个图标代表所有状态，太敷衍了。搭搭、弧弧、补补、回回随任务变换动作——忙不忙，看一眼就知道。',
     pets: [
-      ['搭搭 Dada', '搭建', '把想法一块块变成可运行的东西。', dada, '#2eaa91'],
-      ['弧弧 Huhu', '规划', '复杂任务也能画出一条清楚路线。', huhu, '#3577d4'],
-      ['补补 Bubu', '修复', '找到裂缝，验证之后再补好它。', bubu, '#e56645'],
-      ['回回 Huihui', '构建', '新回复一到，就抱着齿轮继续跑。', huihui, '#7657c8'],
+      ['搭搭', 'Dada', '搭建', '把想法一块块变成可运行的东西。', dada, '#2eaa91'],
+      ['弧弧', 'Huhu', '规划', '复杂任务也能画出一条清楚路线。', huhu, '#3577d4'],
+      ['补补', 'Bubu', '修复', '找到裂缝，验证之后再补好它。', bubu, '#e56645'],
+      ['回回', 'Huihui', '构建', '新回复一到，就抱着齿轮继续跑。', huihui, '#7657c8'],
     ],
     docsEyebrow: 'THE FIELD GUIDE',
-    docsTitle: '不只告诉你“有什么”，还告诉你“怎么走”。',
-    docsIntro: '文档被重新组织成真实任务路径。先完成一次可用体验，再深入架构、边界与维护。',
+    docsTitle: '按任务查，不按目录翻。',
+    docsIntro: '文档按真实任务组织：先跑通第一次会话，再按需深入配置、原理和排障。',
     docGroups: [
-      ['第一次打开', '从安装、模型配置到完成第一段会话。', '/desktop/01-quick-start', '打开快速上手'],
-      ['桌面工作台', '主会话、活动面板、代码审阅、宠物与自动任务。', '/desktop/03-features', '认识桌面功能'],
-      ['伸向真实世界', 'Computer Use、H5 和 IM 接入的操作与安全边界。', '/features/computer-use', '配置 Computer Use'],
-      ['理解它如何工作', '本地服务、Agent、记忆、Skills 与项目结构。', '/reference/project-structure', '进入开发者参考'],
+      ['第一次上手', '装好应用、接上模型账号，跑通你的第一条 Main Session。', '/desktop/01-quick-start', '打开快速上手'],
+      ['用熟桌面端', '会话、多 Agent 协作、代码审阅、宠物和定时任务，一个个用起来。', '/desktop/03-features', '逛逛桌面功能'],
+      ['连到电脑外', '配置 Computer Use、手机 H5 和 IM 接入，弄清授权和安全边界。', '/features/computer-use', '配置远程入口'],
+      ['看懂底层', '本地服务、Agent 机制、记忆、Skills 和项目结构，写给想改代码的人。', '/reference/project-structure', '读开发者参考'],
     ],
     installEyebrow: 'READY WHEN YOU ARE',
-    installTitle: '先把它带回桌面。',
-    installBody: '下载安装包，打开应用，选择项目。你的第一条 Main Session 从这里开始。',
+    installTitle: '现在下载，马上开工。',
+    installBody: 'GitHub Releases 有三平台安装包，也可 bun install 从源码跑。打开、选项目、说任务，今天就跑通第一条会话。',
     copy: '复制',
     copied: '已复制',
     footer: '本地优先的 Claude Code 桌面工作室',
@@ -82,59 +84,61 @@ const content = {
     nav: ['Journey', 'Real UI', 'Meet the crew', 'Docs'],
     download: 'Download desktop',
     eyebrow: 'CLAUDE CODE · NOW HAS A STUDIO',
-    titleA: 'Bring terminal intelligence',
-    titleB: 'into a studio that collaborates.',
-    intro: 'Claude Code Haha brings the main session, code changes, agents, desktop pets, remote access, and scheduled work into one local-first desktop app.',
+    titleA: 'Every step your agents take,',
+    titleB: 'you can see, review, and stop.',
+    intro: 'A local-first studio for Claude Code: run sessions, split work across agents, review diffs, and keep going from your phone.',
     primary: 'Download for macOS / Windows / Linux',
-    secondary: 'Start with the guide',
+    secondary: 'Run your first session',
     local: 'Local-first',
-    providers: 'Multi-model',
-    remote: 'Cross-device',
-    heroNote: 'This is the Main Session. The right workbench opens only when you need it.',
-    orbit: ['Session', 'Code', 'Agents', 'Devices'],
+    providers: 'Bring your models',
+    remote: 'Phone-friendly',
+    fig: 'FIG. 01 — MAIN SESSION, AS SHIPPED',
+    figStatus: '127.0.0.1 · CONNECTED',
+    heroNote: 'A real screenshot, unretouched—cursor included as found.',
+    rail: 'A STUDIO FOR CLAUDE CODE · LOCAL-FIRST · DESKTOP-NATIVE ·',
     journeyEyebrow: 'ONE SESSION, MANY HANDS',
-    journeyTitle: 'Start with one sentence. Let the work unfold.',
-    journeyIntro: 'Not a menu of disconnected tools—a single session thread where every capability has a role.',
+    journeyTitle: 'One sentence starts it. Five steps finish it.',
+    journeyIntro: 'Every capability hangs off the same session, so you never switch tools to get from ask to done.',
     steps: [
-      ['01', 'State the goal', 'Describe the task in Main Session, then choose your project, model, and permission mode.'],
-      ['02', 'Organize the crew', 'Use tasks, subagents, and agent teams while the activity panel keeps progress together.'],
-      ['03', 'See the change', 'Code, diffs, worktrees, and previews stay in context until you decide what lands.'],
-      ['04', 'Reach outward', 'Computer Use works with your desktop; H5 and IM keep the session reachable away from it.'],
-      ['05', 'Bring it back on time', 'Schedule stable routines and return to their session history when you need the evidence.'],
+      ['01', 'Say the task', 'Type the goal into Main Session, pick the project, model, and permission mode, and hit enter.'],
+      ['02', 'Split the work', 'Break big jobs across tasks, subagents, or an agent team. Background progress still rolls up into the activity panel.'],
+      ['03', 'Review, then land', 'Open a diff for every changed file, keep experiments in a worktree, and land nothing until you approve it.'],
+      ['04', 'Reach past the screen', 'Computer Use operates the real desktop. Away from it, continue the same session from H5 or IM—disconnects don\'t interrupt.'],
+      ['05', 'Put it on a clock', 'Turn repeatable routines into scheduled jobs that run in their own sessions, each run leaving a record to revisit.'],
     ],
     tourEyebrow: 'REAL PRODUCT, NOT A MOCKUP',
-    tourTitle: 'Every doorway is backed by a real screen.',
-    tourIntro: 'Switch between actual workflows captured in Claude Code Haha—not conceptual placeholder art.',
+    tourTitle: 'Every screenshot is the real app.',
+    tourIntro: 'No concept art. The feature you see in a frame is the one that opens after install.',
     tours: [
-      { id: 'session', label: 'Main Session', kicker: 'Where the work happens', title: 'The Main Session is the center—not the right workbench.', body: 'Project, conversation, composer, model, and context form the core loop. The code workbench appears only when review needs it.', image: mainSession },
-      { id: 'pets', label: 'Desktop pets', kicker: 'Collaboration with a pulse', title: 'Dada, Huhu, Bubu, and Huihui move with the work.', body: 'Choose a built-in companion or create your own from a character image. They make agent state visible at a glance.', image: petSettings },
-      { id: 'computer', label: 'Computer Use', kicker: 'Beyond the codebase', title: 'Let an agent see, click, type, and verify on the real desktop.', body: 'Install and authorize it in Settings, while keeping sensitive action boundaries in your hands.', image: computerUse },
-      { id: 'schedule', label: 'Scheduled work', kicker: 'Work that comes back', title: 'Local scheduling with a traceable run history.', body: 'Choose a cadence, model, directory, and notification. Runs happen while the desktop app stays open.', image: scheduledTask },
-      { id: 'skills', label: 'Skills & Agents', kicker: 'A studio that can grow', title: 'Discover workflows in the skill market and shape your own agents.', body: 'Review sources, safety notes, and install state, then give each agent its own model, tools, and system prompt.', image: skillMarketplace },
-      { id: 'diff', label: 'Code review', kicker: 'See before you land', title: 'Changed files, diffs, and worktrees each have a clear place.', body: 'Understand changes file by file, keep branch isolation, and decide the next move yourself.', image: diffReview },
-      { id: 'preview', label: 'Browser preview', kicker: 'Verify without leaving the session', title: 'Open a bounded web preview inside the workbench.', body: 'Preview a local or public page and carry what you see back into the task. H5 and IM keep it reachable away from the desktop.', image: browserPreview },
+      { id: 'session', label: 'Main Session', kicker: 'From prompt to code', title: 'Describe the goal. Watch it get done.', body: 'Pick the project, model, and permissions, then start talking. Every change it makes stays open for your review.', image: mainSession },
+      { id: 'pets', label: 'Desktop pets', kicker: 'Status at a glance', title: 'If a pet is moving, an agent is working.', body: 'Dada, Huhu, Bubu, and Huihui move with the task at hand. Upload one character image and raise a pet of your own.', image: petSettings },
+      { id: 'computer', label: 'Computer Use', kicker: 'Eyes and hands on the desktop', title: 'Sees the screen. Clicks, types, verifies.', body: 'Computer Use runs on a native accessibility engine with tiered authorization. Sensitive moves still wait for your nod.', image: computerUse },
+      { id: 'schedule', label: 'Scheduled work', kicker: 'Back on time', title: 'Set the time. It comes back with results.', body: 'Pick a cadence, model, directory, and notification. Jobs run in their own sessions, and every run leaves a record you can review.', image: scheduledTask },
+      { id: 'skills', label: 'Skills & Agents', kicker: 'A studio that can grow', title: 'Missing a trick? Install it.', body: 'Install what looks useful—source and safety notes are shown up front. Then give each agent its own model, tools, and system prompt.', image: skillMarketplace },
+      { id: 'diff', label: 'Code review', kicker: 'Look before you land', title: 'Know exactly what changed, file by file.', body: 'Every edit is listed per file with its diff; worktrees keep experiments off your main branch. What lands is your call.', image: diffReview },
+      { id: 'preview', label: 'Browser preview', kicker: 'Verify on the spot', title: 'Check the page without leaving the session.', body: 'Open local or public pages inside the app and bring what you see back into the task. Step away and hand off to H5 or IM instead.', image: browserPreview },
     ],
     petEyebrow: 'MEET THE CREW',
-    petTitle: 'Four companions. Four working rhythms.',
-    petIntro: 'One cold status icon should not represent every kind of work. Claude Code Haha has a crew instead.',
+    petTitle: 'Meet Dada, Huhu, Bubu, and Huihui.',
+    petIntro: 'One icon for every state felt lazy, so we adopted Dada, Huhu, Bubu, and Huihui—running, thinking, waiting, done. One glance tells you.',
     pets: [
-      ['Dada', 'Build', 'Turns an idea into something you can run.', dada, '#2eaa91'],
-      ['Huhu', 'Plan', 'Finds a clear route through complicated work.', huhu, '#3577d4'],
-      ['Bubu', 'Fix', 'Finds the crack, proves it, then patches it.', bubu, '#e56645'],
-      ['Huihui', 'Ship', 'Grabs the gear and moves when a reply arrives.', huihui, '#7657c8'],
+      ['搭搭', 'Dada', 'Build', 'Turns an idea into something you can run.', dada, '#2eaa91'],
+      ['弧弧', 'Huhu', 'Plan', 'Finds a clear route through complicated work.', huhu, '#3577d4'],
+      ['补补', 'Bubu', 'Fix', 'Finds the crack, proves it, then patches it.', bubu, '#e56645'],
+      ['回回', 'Huihui', 'Ship', 'Grabs the gear and moves when a reply arrives.', huihui, '#7657c8'],
     ],
     docsEyebrow: 'THE FIELD GUIDE',
-    docsTitle: 'Not only what exists—how to get somewhere.',
-    docsIntro: 'The guide follows real user journeys: get to a useful result first, then go deeper into architecture and boundaries.',
+    docsTitle: 'Find answers by task, not by chapter.',
+    docsIntro: 'The docs follow real tasks: get your first session running, then go deeper into configuration, internals, and fixes as needed.',
     docGroups: [
-      ['Your first launch', 'Install, choose a model, and finish your first session.', '/en/desktop/01-quick-start', 'Open quick start'],
-      ['The desktop studio', 'Main Session, activity, review, pets, and scheduled work.', '/en/desktop/03-features', 'Explore desktop features'],
-      ['Reach the real world', 'Computer Use, browser access, IM, and their safety boundaries.', '/en/features/computer-use', 'Set up Computer Use'],
-      ['Understand the system', 'Local services, agents, memory, skills, and project structure.', '/en/reference/project-structure', 'Open developer reference'],
+      ['First launch', 'Install the app, connect a model account, and finish your first Main Session.', '/en/desktop/01-quick-start', 'Open the quick start'],
+      ['The desktop studio', 'Main Session, the activity panel, code review, pets, and scheduled runs.', '/en/desktop/03-features', 'Tour the desktop app'],
+      ['Beyond the machine', 'Set up Computer Use, H5, and IM access, and know exactly where the permission boundaries are.', '/en/features/computer-use', 'Configure remote access'],
+      ['Under the hood', 'Local services, agent mechanics, memory, skills, and project structure—written for people who hack on it.', '/en/reference/project-structure', 'Read the developer reference'],
     ],
     installEyebrow: 'READY WHEN YOU ARE',
-    installTitle: 'Bring it to your desktop.',
-    installBody: 'Install the app, choose a project, and start your first Main Session.',
+    installTitle: 'Download it and get to work.',
+    installBody: 'Grab the installer on GitHub Releases, or bun install from source. Open the app, pick a project, and say your first task.',
     copy: 'Copy',
     copied: 'Copied',
     footer: 'A local-first desktop studio for Claude Code',
@@ -174,7 +178,7 @@ function Header({ locale, c }) {
     <header className="site-header">
       <a className="brand" href={prefix || '/'} aria-label="Claude Code Haha">
         <span className="brand-mark"><img src={appIcon} alt="" /></span>
-        <span>Claude Code <b>Haha</b></span>
+        <span className="brand-word">Claude Code <b>Haha</b></span>
       </a>
       <button className="menu-button" type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="menu" />
@@ -183,7 +187,7 @@ function Header({ locale, c }) {
         {c.nav.map((item, index) => <a href={`${prefix || ''}/#${ids[index]}`} key={item} onClick={closeMenu}>{item}</a>)}
         <a href={locale === 'en' ? '/' : '/en/'} onClick={closeMenu}>{locale === 'en' ? '中文' : 'EN'}</a>
         <a className="nav-download" href={DOWNLOAD_URL}>
-          <Icon name="download" size={16} />{c.download}
+          <Icon name="download" size={15} />{c.download}
         </a>
       </nav>
     </header>
@@ -193,41 +197,37 @@ function Header({ locale, c }) {
 function Hero({ locale, c }) {
   return (
     <section className="hero">
-      <div className="hero-grid" aria-hidden="true" />
       <div className="hero-copy" data-reveal>
-        <div className="eyebrow"><span className="status-dot" />{c.eyebrow}</div>
+        <div className="eyebrow">{c.eyebrow}</div>
         <h1><span>{c.titleA}</span><em>{c.titleB}</em></h1>
         <p className="hero-intro">{c.intro}</p>
         <div className="hero-actions">
           <a className="button button-primary" href={DOWNLOAD_URL}>{c.primary}<Icon name="arrow" /></a>
-          <a className="button button-paper" href={locale === 'en' ? '/en/desktop/01-quick-start' : '/desktop/01-quick-start'}>{c.secondary}</a>
+          <a className="button button-ghost" href={locale === 'en' ? '/en/desktop/01-quick-start' : '/desktop/01-quick-start'}>{c.secondary}<Icon name="arrow" /></a>
         </div>
         <div className="hero-trust" aria-label="Product qualities">
-          {[c.local, c.providers, c.remote].map((item) => <span key={item}><Icon name="check" size={15} />{item}</span>)}
+          {[c.local, c.providers, c.remote].map((item) => <span key={item}>{item}</span>)}
         </div>
       </div>
       <div className="hero-stage" data-reveal>
-        <div className="stage-thread" />
-        <div className="stage-label stage-label-a">{c.orbit[0]}</div>
-        <div className="stage-label stage-label-b">{c.orbit[1]}</div>
-        <div className="stage-label stage-label-c">{c.orbit[2]}</div>
-        <div className="stage-label stage-label-d">{c.orbit[3]}</div>
-        <div className="window-card">
-          <div className="window-bar">
-            <span><i /><i /><i /></span>
-            <b>MAIN SESSION</b>
-            <small>LOCAL · CONNECTED</small>
+        <div className="stage-frame">
+          <div className="frame-meta" aria-hidden="true">
+            <span>{c.fig}</span>
+            <span className="frame-status"><i />{c.figStatus}</span>
           </div>
-          <img src={mainSession} alt="Claude Code Haha Main Session" />
-        </div>
-        <div className="mascot-note">
-          <img src={huhu} alt="" />
-          <p>{c.heroNote}</p>
+          <div className="window-card">
+            <div className="window-bar">
+              <span><i /><i /><i /></span>
+              <b>CLAUDE CODE HAHA</b>
+              <small>SESSION — 001</small>
+            </div>
+            <img src={mainSession} alt="Claude Code Haha Main Session" />
+          </div>
+          <img className="stage-mascot" src={huhu} alt="" />
+          <p className="stage-caption">{c.heroNote}</p>
         </div>
       </div>
-      <div className="hero-marquee" aria-hidden="true">
-        <div>MAIN SESSION · CODE REVIEW · DESKTOP PETS · COMPUTER USE · REMOTE ACCESS · SCHEDULED WORK · MAIN SESSION · CODE REVIEW · DESKTOP PETS · COMPUTER USE · REMOTE ACCESS · SCHEDULED WORK ·</div>
-      </div>
+      <div className="hero-rail" aria-hidden="true"><span>{c.rail}</span></div>
     </section>
   )
 }
@@ -241,13 +241,11 @@ function Journey({ c }) {
         <p>{c.journeyIntro}</p>
       </div>
       <ol className="journey-list">
-        {c.steps.map(([number, title, body], index) => (
+        {c.steps.map(([number, title, body]) => (
           <li data-reveal key={number}>
             <div className="step-number">{number}</div>
             <div className="step-copy"><h3>{title}</h3><p>{body}</p></div>
-            <div className="step-mark" aria-hidden="true">
-              {index === 0 ? <Icon name="spark" /> : <span>{['⌘', '∆', '↗', '↻'][index - 1]}</span>}
-            </div>
+            <div className="step-arrow" aria-hidden="true"><Icon name="arrow" size={22} /></div>
           </li>
         ))}
       </ol>
@@ -301,7 +299,7 @@ function ProductTour({ c }) {
             tabIndex={active.id === tour.id ? 0 : -1}
             type="button"
           >
-            <span>0{c.tours.indexOf(tour) + 1}</span>{tour.label}
+            <span>{String(index + 1).padStart(2, '0')}</span>{tour.label}
           </button>
         ))}
       </div>
@@ -317,11 +315,8 @@ function ProductTour({ c }) {
           <div className="tour-kicker">{active.kicker}</div>
           <h3>{active.title}</h3>
           <p>{active.body}</p>
-          <div className="tour-scribble" aria-hidden="true">LOOK HERE →</div>
         </div>
         <div className="tour-screen">
-          <div className="screen-tape screen-tape-one" />
-          <div className="screen-tape screen-tape-two" />
           <img key={active.id} src={active.image} alt={`${active.label} interface`} />
         </div>
       </div>
@@ -338,12 +333,12 @@ function Crew({ c }) {
         <p>{c.petIntro}</p>
       </div>
       <div className="crew-track">
-        {c.pets.map(([name, role, body, image, color], index) => (
-          <article className="crew-member" data-reveal key={name} style={{ '--pet-accent': color, '--pet-delay': `${index * 100}ms` }}>
-            <span className="crew-index">0{index + 1}</span>
-            <div className="pet-portrait"><div className="pet-halo" /><img src={image} alt="" /></div>
+        {c.pets.map(([name, latin, role, body, image, color], index) => (
+          <article className="crew-member" data-reveal key={latin} style={{ '--pet-accent': color, '--pet-delay': `${index * 90}ms` }}>
+            <div className="crew-callsign"><span>UNIT 0{index + 1}</span><i style={{ background: color }} /></div>
+            <div className="pet-portrait"><img src={image} alt="" /></div>
             <div className="crew-role">{role}</div>
-            <h3>{name}</h3>
+            <h3>{name}<em>{latin}</em></h3>
             <p>{body}</p>
           </article>
         ))}
@@ -389,14 +384,13 @@ function Install({ locale, c }) {
 
   return (
     <section className="section install" id="install">
-      <div className="install-mascot" aria-hidden="true"><img src={dada} alt="" /><span>HA!</span></div>
       <div className="install-copy">
         <div className="eyebrow">{c.installEyebrow}</div>
         <h2>{c.installTitle}</h2>
         <p>{c.installBody}</p>
         <div className="install-actions">
-          <a className="button button-ink" href={DOWNLOAD_URL}><Icon name="download" />{c.primary}</a>
-          <a className="text-link" href={locale === 'en' ? '/en/desktop/04-installation' : '/desktop/04-installation'}>Installation guide <Icon name="arrow" size={17} /></a>
+          <a className="button button-paper" href={DOWNLOAD_URL}><Icon name="download" />{c.primary}</a>
+          <a className="text-link" href={locale === 'en' ? '/en/desktop/04-installation' : '/desktop/04-installation'}>Installation guide <Icon name="arrow" size={16} /></a>
         </div>
       </div>
       <div className="command-sheet">
@@ -406,8 +400,9 @@ function Install({ locale, c }) {
           <span>$</span> cd cc-haha &amp;&amp; bun install<br />
           <span>$</span> ./bin/claude-haha
         </code>
-        <button type="button" onClick={copyCommand}><Icon name={copied ? 'check' : 'copy'} size={17} />{copied ? c.copied : c.copy}</button>
+        <button type="button" onClick={copyCommand}><Icon name={copied ? 'check' : 'copy'} size={16} />{copied ? c.copied : c.copy}</button>
         <p>Desktop + CLI · same local runtime</p>
+        <div className="install-mascot" aria-hidden="true"><img src={dada} alt="" /></div>
       </div>
     </section>
   )
@@ -416,11 +411,11 @@ function Install({ locale, c }) {
 function Footer({ locale, c }) {
   return (
     <footer className="footer">
-      <div className="brand footer-brand"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Claude Code <b>Haha</b></span></div>
+      <div className="brand footer-brand"><span className="brand-mark"><img src={appIcon} alt="" /></span><span className="brand-word">Claude Code <b>Haha</b></span></div>
       <p>{c.footer}</p>
       <div className="footer-links">
         <a href={locale === 'en' ? '/en/desktop/01-quick-start' : '/desktop/01-quick-start'}>Docs</a>
-        <a href={GITHUB_URL}><Icon name="github" size={18} />GitHub</a>
+        <a href={GITHUB_URL}><Icon name="github" size={17} />GitHub</a>
         <a href={locale === 'en' ? '/' : '/en/'}>{locale === 'en' ? '中文' : 'English'}</a>
       </div>
     </footer>
