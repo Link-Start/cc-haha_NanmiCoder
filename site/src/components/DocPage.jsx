@@ -147,7 +147,7 @@ export function DocPage({
             onNavigate(homeRoute)
           }}
         >
-          <img src={toSiteHref('/images/app-icon.svg')} alt="" />
+          <img src={toSiteHref('/images/app-icon.png')} alt="" />
           <span>Claude Code Haha</span>
           <small>Docs</small>
         </a>
